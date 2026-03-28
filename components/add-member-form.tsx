@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Heart,
   Loader2,
   Search,
   Sparkles,
@@ -13,6 +14,7 @@ import { toast } from "sonner";
 import {
   addMemberByUserId,
   addMemberByUsername,
+  getFriendsForLeagueInvite,
   getSuggestedLeagueMates,
   searchUsersForLeague,
   type LeagueMemberPick,
@@ -20,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UserAvatarDisplay } from "@/components/user-avatar-display";
 import { cn } from "@/lib/utils";
 
 function UserRow({
@@ -36,35 +39,40 @@ function UserRow({
   const handle = u.username ? `@${u.username}` : "—";
   const display = u.name?.trim() || handle;
   return (
-    <div
+    <button
+      type="button"
+      disabled={pending}
+      onClick={onAdd}
       className={cn(
-        "flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5",
+        "flex w-full items-center gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 text-left transition-colors",
+        "hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300 motion-safe:fill-mode-both",
+        pending && "pointer-events-none opacity-70",
       )}
       style={staggerMs ? { animationDelay: `${staggerMs}ms` } : undefined}
     >
+      <UserAvatarDisplay
+        name={u.name}
+        username={u.username}
+        avatarUrl={u.avatar_url ?? null}
+        size="sm"
+        className="shrink-0"
+      />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">{display}</p>
         {u.name?.trim() ? (
           <p className="truncate font-mono text-xs text-muted-foreground">{handle}</p>
         ) : null}
       </div>
-      <Button
-        type="button"
-        size="sm"
-        variant="secondary"
-        className="shrink-0 gap-1.5 transition-transform active:scale-95"
-        disabled={pending}
-        onClick={onAdd}
-      >
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-secondary px-2.5 py-1.5 text-xs font-medium text-secondary-foreground">
         {pending ? (
           <Loader2 className="size-4 animate-spin" aria-hidden />
         ) : (
           <UserPlus className="size-4" aria-hidden />
         )}
         Add
-      </Button>
-    </div>
+      </span>
+    </button>
   );
 }
 
@@ -75,6 +83,8 @@ export function AddMemberForm({ leagueId }: { leagueId: string }) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchResults, setSearchResults] = useState<LeagueMemberPick[]>([]);
   const [suggestions, setSuggestions] = useState<LeagueMemberPick[]>([]);
+  const [friends, setFriends] = useState<LeagueMemberPick[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(true);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [searchPending, startSearch] = useTransition();
   const [suggestLoading, setSuggestLoading] = useState(true);
@@ -83,6 +93,24 @@ export function AddMemberForm({ leagueId }: { leagueId: string }) {
     const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 320);
     return () => window.clearTimeout(t);
   }, [search]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFriendsLoading(true);
+    getFriendsForLeagueInvite(leagueId).then((res) => {
+      if (cancelled) return;
+      if ("error" in res && res.error) {
+        toast.error(res.error);
+        setFriends([]);
+      } else {
+        setFriends(res.users);
+      }
+      setFriendsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [leagueId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +154,10 @@ export function AddMemberForm({ leagueId }: { leagueId: string }) {
     getSuggestedLeagueMates(leagueId).then((res) => {
       if ("error" in res && res.error) return;
       setSuggestions(res.users);
+    });
+    getFriendsForLeagueInvite(leagueId).then((res) => {
+      if ("error" in res && res.error) return;
+      setFriends(res.users);
     });
   }, [leagueId, router]);
 
@@ -194,7 +226,40 @@ export function AddMemberForm({ leagueId }: { leagueId: string }) {
         </Button>
       </form>
 
-      <div className="space-y-3">
+      <div className="space-y-3 border-t border-border/60 pt-6">
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <Heart className="size-4 text-muted-foreground" aria-hidden />
+          Your friends
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Tap a row to add them. Uses the role you selected above (Player or Admin).
+        </p>
+        {friendsLoading ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="size-3.5 animate-spin" />
+            Loading friends…
+          </div>
+        ) : friends.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No friends to add here yet—connect on the Friends page, or search below.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {friends.map((u, i) => (
+              <li key={u.id}>
+                <UserRow
+                  u={u}
+                  pending={addingId === u.id}
+                  staggerMs={Math.min(i, 8) * 35}
+                  onAdd={() => quickAdd(u)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="space-y-3 border-t border-border/60 pt-6">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Search className="size-4 text-muted-foreground" aria-hidden />
           Search players

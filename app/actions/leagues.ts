@@ -161,6 +161,7 @@ export type LeagueMemberPick = {
   id: string;
   username: string | null;
   name: string | null;
+  avatar_url?: string | null;
 };
 
 async function requireLeagueAdmin(
@@ -178,6 +179,52 @@ async function requireLeagueAdmin(
     me &&
     (me.role === "owner" || me.role === "admin")
   );
+}
+
+/** Accepted friends with a username who are not yet members of this league. */
+export async function getFriendsForLeagueInvite(leagueId: string) {
+  const { supabase, user } = await requireOnboarded();
+  if (!(await requireLeagueAdmin(supabase, user.id, leagueId))) {
+    return { error: "Not allowed.", users: [] as LeagueMemberPick[] };
+  }
+
+  const { data: rows, error: fErr } = await supabase
+    .from("friendships")
+    .select("user_a, user_b, status")
+    .eq("status", "accepted");
+
+  if (fErr) return { error: fErr.message, users: [] as LeagueMemberPick[] };
+
+  const peerIds = (rows ?? [])
+    .filter((r) => r.user_a === user.id || r.user_b === user.id)
+    .map((r) => (r.user_a === user.id ? r.user_b : r.user_a) as string);
+
+  const uniquePeers = [...new Set(peerIds)].filter((id) => id !== user.id);
+
+  const { data: members } = await supabase
+    .from("league_members")
+    .select("user_id")
+    .eq("league_id", leagueId);
+  const memberSet = new Set((members ?? []).map((m) => m.user_id as string));
+
+  const eligible = uniquePeers.filter((id) => !memberSet.has(id));
+  if (eligible.length === 0) return { users: [] as LeagueMemberPick[] };
+
+  const { data: users, error } = await supabase
+    .from("users")
+    .select("id, username, name, avatar_url")
+    .in("id", eligible)
+    .not("username", "is", null);
+
+  if (error) return { error: error.message, users: [] as LeagueMemberPick[] };
+
+  const list = (users ?? []).filter((u) => u.username?.trim()) as LeagueMemberPick[];
+  list.sort((a, b) => {
+    const an = (a.name?.trim() || a.username || "").toLowerCase();
+    const bn = (b.name?.trim() || b.username || "").toLowerCase();
+    return an.localeCompare(bn);
+  });
+  return { users: list.slice(0, 40) };
 }
 
 /** Users you share another league with, not yet in this league (RLS-visible rows only). */
@@ -215,7 +262,7 @@ export async function getSuggestedLeagueMates(leagueId: string) {
 
   const { data: users, error } = await supabase
     .from("users")
-    .select("id, username, name")
+    .select("id, username, name, avatar_url")
     .in("id", suggestIds)
     .not("username", "is", null);
 
@@ -243,7 +290,7 @@ export async function searchUsersForLeague(leagueId: string, query: string) {
 
   const { data: users, error } = await supabase
     .from("users")
-    .select("id, username, name")
+    .select("id, username, name, avatar_url")
     .ilike("username", `%${raw}%`)
     .limit(30);
 
