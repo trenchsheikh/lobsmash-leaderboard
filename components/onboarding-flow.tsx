@@ -297,15 +297,6 @@ export function OnboardingFlow({
             style={{ width: `${progress}%` }}
           />
         </div>
-        <p className="mt-1.5 flex flex-col gap-1 text-[10px] text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-1 sm:text-[11px]">
-          <span>
-            <kbd className="rounded border border-border px-1">Enter</kbd> continue
-          </span>
-          <span className="hidden sm:inline">·</span>
-          <span>
-            <kbd className="rounded border border-border px-1">Esc</kbd> back
-          </span>
-        </p>
       </div>
 
       <div
@@ -327,55 +318,50 @@ export function OnboardingFlow({
           <div className="w-full space-y-3">
             <div className="min-w-0">
               <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl md:text-3xl">
-                Let’s build your padel profile
+                Your LobSmash profile
               </h1>
               <p className="mt-2 text-sm leading-snug text-muted-foreground">
-                A few screens to set up your profile—you create and join leagues yourself.
-                LobSmash uses this so teammates see you clearly in draws and lineups. Tap{" "}
-                <span className="font-medium text-foreground">Let&apos;s go</span> when
-                you&apos;re ready.
+                <span className="sm:hidden">
+                  Quick steps so teammates know you in leagues. Tap{" "}
+                  <span className="font-medium text-foreground">Let&apos;s go</span> to start.
+                </span>
+                <span className="hidden sm:inline">
+                  A short setup so teammates recognize you in draws and lineups. Tap{" "}
+                  <span className="font-medium text-foreground">Let&apos;s go</span> when
+                  you&apos;re ready—you can edit everything later in settings.
+                </span>
               </p>
             </div>
 
-            <ul className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-2.5 text-sm text-foreground/90">
-              <li className="flex gap-2.5">
+            <ul className="space-y-1.5 rounded-lg border border-border/70 bg-muted/30 p-2.5 text-[13px] leading-tight text-foreground/90 sm:space-y-2 sm:text-sm sm:leading-snug">
+              <li className="flex gap-2">
                 <UserCircle
                   className="mt-0.5 size-4 shrink-0 text-primary"
                   aria-hidden
                 />
                 <span>
                   <span className="font-medium text-foreground">Profile</span>
-                  <span className="text-muted-foreground">
-                    {" "}
-                    — username, display name, optional photo
-                  </span>
+                  <span className="text-muted-foreground"> — handle, name, photo</span>
                 </span>
               </li>
-              <li className="flex gap-2.5">
+              <li className="flex gap-2">
                 <Camera className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                 <span>
                   <span className="font-medium text-foreground">How you play</span>
-                  <span className="text-muted-foreground">
-                    {" "}
-                    — style, strengths, one honest growth pick
-                  </span>
+                  <span className="text-muted-foreground"> — style &amp; strengths</span>
                 </span>
               </li>
-              <li className="flex gap-2.5">
+              <li className="flex gap-2">
                 <Gauge className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                 <span>
-                  <span className="font-medium text-foreground">In games</span>
-                  <span className="text-muted-foreground">
-                    {" "}
-                    — court side and level for fair lineups
-                  </span>
+                  <span className="font-medium text-foreground">Lineups</span>
+                  <span className="text-muted-foreground"> — side &amp; level</span>
                 </span>
               </li>
             </ul>
 
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              Honest answers power LobSmash analytics to help you improve your padel game
-              over time—no need to oversell. Edit anytime in settings.
+            <p className="hidden text-xs text-muted-foreground sm:block">
+              Honest picks help fair matchups—edit anytime in settings.
             </p>
           </div>
         ) : null}
