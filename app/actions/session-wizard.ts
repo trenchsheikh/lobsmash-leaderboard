@@ -27,6 +27,7 @@ export async function createSessionDraft(
     numCourts: number;
     inputMode: InputMode;
   },
+  options?: { revalidate?: boolean },
 ) {
   const { supabase, user } = await requireOnboarded();
   if (!(await requireLeagueAdmin(supabase, leagueId, user.id))) {
@@ -59,6 +60,8 @@ export async function createSessionDraft(
       created_by: user.id,
       date: dateRaw,
       status: "draft",
+      num_courts: n,
+      input_mode: input.inputMode,
     })
     .select("id")
     .single();
@@ -67,8 +70,65 @@ export async function createSessionDraft(
 
   const sessionId = data.id as string;
 
-  revalidatePath(`/leagues/${leagueId}`);
+  if (options?.revalidate !== false) {
+    revalidatePath(`/leagues/${leagueId}`);
+  }
   return { sessionId };
+}
+
+export async function updateSessionDraftMeta(
+  leagueId: string,
+  sessionId: string,
+  input: {
+    date: string;
+    numCourts: number;
+    inputMode: InputMode;
+  },
+) {
+  const { supabase, user } = await requireOnboarded();
+  if (!(await requireLeagueAdmin(supabase, leagueId, user.id))) {
+    return { error: "Not allowed." };
+  }
+
+  const dateRaw = input.date.trim();
+  if (!dateRaw) return { error: "Date is required." };
+
+  const n = Number(input.numCourts);
+  if (!Number.isInteger(n) || n < 1 || n > 12) {
+    return { error: "Number of courts must be 1–12." };
+  }
+  if (input.inputMode !== "full" && input.inputMode !== "champ_court_only") {
+    return { error: "Invalid input mode." };
+  }
+
+  const { data: session, error: sErr } = await supabase
+    .from("sessions")
+    .select("id, league_id, status")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (sErr || !session || session.league_id !== leagueId) {
+    return { error: "Session not found." };
+  }
+  if (session.status === "completed") {
+    return { error: "Cannot edit a completed session." };
+  }
+
+  const { error: uErr } = await supabase
+    .from("sessions")
+    .update({
+      date: dateRaw,
+      num_courts: n,
+      input_mode: input.inputMode,
+    })
+    .eq("id", sessionId)
+    .eq("league_id", leagueId);
+
+  if (uErr) return { error: uErr.message };
+
+  revalidatePath(`/leagues/${leagueId}/sessions/${sessionId}`);
+  revalidatePath(`/leagues/${leagueId}`);
+  return { ok: true as const };
 }
 
 export async function upsertSessionTeams(
@@ -179,13 +239,11 @@ export async function replaceSessionGames(
     .eq("league_id", leagueId);
   for (const r of roster ?? []) rosterIds.add(r.player_id as string);
 
-  const courts = new Set<number>();
+  const courtsWithAtLeastOneGame = new Set<number>();
   for (const g of games) {
     if (!Number.isInteger(g.courtNumber) || g.courtNumber < 1) {
       return { error: "Invalid court number." };
     }
-    if (courts.has(g.courtNumber)) return { error: "Duplicate court number." };
-    courts.add(g.courtNumber);
 
     const a = g.teamAPlayers;
     const b = g.teamBPlayers;
@@ -209,21 +267,34 @@ export async function replaceSessionGames(
     if (sa === sb) return { error: "Scores cannot be tied." };
     if (g.winner === "team_a" && sa <= sb) return { error: "Winner does not match scores." };
     if (g.winner === "team_b" && sb <= sa) return { error: "Winner does not match scores." };
+    courtsWithAtLeastOneGame.add(g.courtNumber);
   }
 
   const mode = meta.inputMode;
   const numCourts = meta.numCourts;
 
   if (mode === "champ_court_only") {
-    if (games.length !== 1 || games[0]?.courtNumber !== 1) {
-      return { error: "Champ court mode requires exactly one game on court 1." };
+    if (games.length === 0) {
+      return { error: "Add at least one game." };
+    }
+    for (const g of games) {
+      if (g.courtNumber !== 1) {
+        return { error: "Championship mode only records games on court 1." };
+      }
     }
   } else {
-    if (games.length !== numCourts) {
-      return { error: `Full results mode requires ${numCourts} court games.` };
+    if (games.length === 0) {
+      return { error: "Add at least one game." };
+    }
+    for (const g of games) {
+      if (g.courtNumber > numCourts) {
+        return { error: `Court number must be between 1 and ${numCourts}.` };
+      }
     }
     for (let c = 1; c <= numCourts; c++) {
-      if (!courts.has(c)) return { error: `Missing results for court ${c}.` };
+      if (!courtsWithAtLeastOneGame.has(c)) {
+        return { error: `Add at least one result for court ${c} (you can add extra games on any court).` };
+      }
     }
   }
 

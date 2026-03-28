@@ -1,5 +1,9 @@
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
+import { after } from "next/server";
+import { cache } from "react";
+import { createSessionDraft } from "@/app/actions/session-wizard";
 import { requireOnboarded } from "@/lib/auth/profile";
 import { buttonVariants } from "@/lib/button-variants";
 import { PageHeader } from "@/components/page-header";
@@ -8,6 +12,20 @@ import { SessionCreateWizard } from "@/components/session-create-wizard";
 type PageProps = {
   params: Promise<{ leagueId: string }>;
 };
+
+/** One draft insert per request (dedupes if React runs the tree twice in dev). */
+const createDraftForNewSessionPage = cache(
+  async (leagueId: string, date: string, numCourts: number) =>
+    createSessionDraft(
+      leagueId,
+      {
+        date,
+        numCourts,
+        inputMode: "full",
+      },
+      { revalidate: false },
+    ),
+);
 
 export default async function NewSessionPage({ params }: PageProps) {
   const { leagueId } = await params;
@@ -68,8 +86,32 @@ export default async function NewSessionPage({ params }: PageProps) {
   const defaultCourts =
     typeof lc === "number" && lc >= 1 && lc <= 12 ? lc : 4;
 
+  const today = new Date().toISOString().slice(0, 10);
+  const draftResult = await createDraftForNewSessionPage(leagueId, today, defaultCourts);
+
+  if ("error" in draftResult && draftResult.error) {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col gap-6">
+        <PageHeader title="New session" description="Could not create a draft session." />
+        <p className="text-sm text-destructive">{draftResult.error}</p>
+        <Link
+          href={`/leagues/${leagueId}`}
+          className={buttonVariants({ variant: "outline", size: "sm", className: "w-fit" })}
+        >
+          Back to league
+        </Link>
+      </div>
+    );
+  }
+
+  const initialSessionId = draftResult.sessionId as string;
+
+  after(() => {
+    revalidatePath(`/leagues/${leagueId}`);
+  });
+
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-8">
+    <div className="mx-auto flex max-w-2xl flex-col gap-8">
       <PageHeader
         title="New session"
         description={
@@ -84,6 +126,7 @@ export default async function NewSessionPage({ params }: PageProps) {
 
       <SessionCreateWizard
         leagueId={leagueId}
+        sessionId={initialSessionId}
         defaultCourts={defaultCourts}
         roster={roster}
       />
