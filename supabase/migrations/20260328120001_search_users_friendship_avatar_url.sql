@@ -1,4 +1,7 @@
 -- Friend search RPC: include avatar_url (requires public.friendships from 20250330120000_friendships.sql).
+-- Return type changed from 3 to 4 columns: must drop; CREATE OR REPLACE cannot alter RETURNS TABLE shape.
+
+drop function if exists public.search_users_for_friendship(text);
 
 create or replace function public.search_users_for_friendship(p_query text)
 returns table (id text, username text, name text, avatar_url text)

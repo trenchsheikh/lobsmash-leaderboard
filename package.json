@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:migrate:clerk": "node scripts/run-migration.cjs supabase/migrations/20250328120000_clerk_jwt_text_ids.sql",
     "db:migrate:last-seen": "node scripts/run-migration.cjs supabase/migrations/20250329100000_user_last_seen.sql",
+    "db:migrate:friendships": "node scripts/run-migration.cjs supabase/migrations/20250330120000_friendships.sql",
     "db:migrate:avatar-storage": "node scripts/run-migration.cjs supabase/migrations/20260328120000_user_avatar_storage.sql",
     "db:migrate:avatar-search-rpc": "node scripts/run-migration.cjs supabase/migrations/20260328120001_search_users_friendship_avatar_url.sql",
     "db:migrate:file": "node scripts/run-migration.cjs"

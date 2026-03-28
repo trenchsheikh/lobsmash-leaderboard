@@ -40,6 +40,7 @@ Only use this if you want a one-off script instead of pasting in the dashboard. 
    | --- | --- |
    | `npm run db:migrate:clerk` | Clerk JWT / text ids |
    | `npm run db:migrate:last-seen` | Optional last-seen columns |
+   | `npm run db:migrate:friendships` | Friend requests + `search_users_for_friendship` (step 8) |
    | `npm run db:migrate:avatar-storage` | Avatars bucket + `avatar_url` |
    | `npm run db:migrate:avatar-search-rpc` | Friend search returns `avatar_url` (needs friendships) |
    | `npm run db:migrate:file -- supabase/migrations/ANY.sql` | Arbitrary single file |
