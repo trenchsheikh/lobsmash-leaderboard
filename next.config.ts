@@ -33,6 +33,10 @@ const nextConfig: NextConfig = {
     },
     /** Enables Link `transitionTypes` + browser View Transitions where supported. */
     viewTransition: true,
+    /** Match avatar uploads (2MB cap in `app/actions/avatar.ts`); default 1MB caused 413 on Vercel. */
+    serverActions: {
+      bodySizeLimit: "2mb",
+    },
   },
 };
 

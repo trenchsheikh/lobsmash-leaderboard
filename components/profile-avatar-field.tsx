@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { removeAvatar, uploadAvatar } from "@/app/actions/avatar";
+import { AvatarCropDialog } from "@/components/avatar-crop-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
@@ -29,11 +30,31 @@ export function ProfileAvatarField({
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, start] = useTransition();
+  const [cropObjectUrl, setCropObjectUrl] = useState<string | null>(null);
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file.");
+      return;
+    }
+    setCropObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }
+
+  function clearCropObjectUrl() {
+    setCropObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }
+
+  function onCroppedFile(file: File) {
+    clearCropObjectUrl();
     start(async () => {
       const fd = new FormData();
       fd.set("file", file);
@@ -70,6 +91,14 @@ export function ProfileAvatarField({
           : undefined
       }
     >
+      <AvatarCropDialog
+        open={cropObjectUrl !== null}
+        imageSrc={cropObjectUrl}
+        onOpenChange={(open) => {
+          if (!open) clearCropObjectUrl();
+        }}
+        onCropped={onCroppedFile}
+      />
       <div
         className={
           isOnboarding
@@ -150,7 +179,7 @@ export function ProfileAvatarField({
                 : "max-w-xs text-center sm:text-left",
             )}
           >
-            JPEG, PNG, WebP, or GIF · up to 2&nbsp;MB
+            You&apos;ll crop to a circle · JPEG/PNG/WebP/GIF · saved under 2&nbsp;MB
           </p>
         </div>
       </div>
