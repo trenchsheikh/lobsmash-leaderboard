@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lobs Smash Leaderboard
 
-## Getting Started
+A web app for running **padel-style leagues**: create leagues with join codes, record sessions and games, and track standings with format-specific leaderboards (**King of Court** and **Americano**). Built for groups who want a simple, shared source of truth for results and stats.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+| Layer | Technology |
+| --- | --- |
+| Framework | [Next.js](https://nextjs.org) 16 (App Router) |
+| UI | React 19, [Tailwind CSS](https://tailwindcss.com) 4, [shadcn/ui](https://ui.shadcn.com)-style components |
+| Auth | [Clerk](https://clerk.com) (sessions, protected routes) |
+| Data | [Supabase](https://supabase.com) (PostgreSQL + Row Level Security) |
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Clerk identities are mapped to app users in Postgres; the Supabase client uses the Clerk session JWT for RLS—see `lib/supabase/` and project rules in `AGENTS.md`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Accounts & profiles** — Sign in with Clerk; onboard with display name and `@username`; optional avatar storage.
+- **Leagues** — Create or join with a code; owner/admin roles; roster and member management.
+- **Sessions & games** — Session workflow with team/input modes; game entry and deletion tied to league permissions.
+- **Leaderboards** — Standings and win/points stats with ordering that depends on league format.
+- **Friends** — Friend requests and discovery (with optional avatar-aware search when migrations are applied).
 
-## Learn More
+## Prerequisites
 
-To learn more about Next.js, take a look at the following resources:
+- **Node.js** 20+ (recommended)
+- **Clerk** application (publishable + secret keys)
+- **Supabase** project (URL + anon key; Clerk connected under Authentication → Third-party)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Getting started
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Clone the repository**
 
-## Deploy on Vercel
+   ```bash
+   git clone https://github.com/trenchsheikh/lobsmash-leaderboard.git
+   cd lobsmash-leaderboard
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. **Install dependencies**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   npm install
+   ```
+
+3. **Environment variables**
+
+   Copy `.env.local.example` to `.env.local` and fill in values from the Clerk and Supabase dashboards. Do not commit `.env.local`.
+
+4. **Database**
+
+   Apply SQL migrations to your Supabase database **in order**. Full file list and options (SQL Editor vs. local `DATABASE_URL` runner) are documented in [`supabase/HOSTED_SETUP.md`](supabase/HOSTED_SETUP.md).
+
+5. **Run the dev server**
+
+   ```bash
+   npm run dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000).
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the development server |
+| `npm run build` | Production build |
+| `npm run start` | Run the production server |
+| `npm run lint` | ESLint |
+| `npm run db:migrate:clerk` | Run Clerk id / JWT migration (see `package.json` for path) |
+| `npm run db:migrate:last-seen` | Optional last-seen migration |
+| `npm run db:migrate:avatar-storage` | Avatar URL + storage bucket migration |
+| `npm run db:migrate:avatar-search-rpc` | Friend search RPC with avatars (depends on friendships migration) |
+| `npm run db:migrate:file -- <path>` | Run a single migration file via `scripts/run-migration.cjs` |
+
+## Project layout (high level)
+
+- `app/` — Routes: auth, dashboard, leagues, sessions, friends, profile.
+- `components/` — Forms, layout, and UI primitives.
+- `lib/` — Auth helpers, Supabase clients, leaderboard logic, shared types.
+- `supabase/migrations/` — Ordered SQL for schema and RLS.
+
+## Documentation
+
+- [`supabase/HOSTED_SETUP.md`](supabase/HOSTED_SETUP.md) — Migration order and hosted Supabase setup.
+- [`docs/CLERK_DASHBOARD.md`](docs/CLERK_DASHBOARD.md) — Clerk dashboard notes (session, third-party Supabase).
+
+## License
+
+No license file is included in this repository; add one if you need explicit terms for contributors or users.
