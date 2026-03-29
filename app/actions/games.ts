@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOnboarded } from "@/lib/auth/profile";
+import {
+  applySkillRatingAfterCompletedEdit,
+  reverseSkillRatingIfCompleted,
+} from "@/lib/session-skill-rating";
 
 function parseUuidList(raw: string): string[] {
   return raw
@@ -112,23 +116,53 @@ export async function createGame(leagueId: string, sessionId: string, formData: 
 }
 
 export async function deleteGame(leagueId: string, sessionId: string, gameId: string) {
-  const { supabase } = await requireOnboarded();
+  const { supabase, user } = await requireOnboarded();
+  const lid = leagueId.trim().toLowerCase();
+  const sid = sessionId.trim().toLowerCase();
+
+  const { data: membership } = await supabase
+    .from("league_members")
+    .select("role")
+    .eq("league_id", lid)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    return { error: "Not allowed." };
+  }
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("league_id")
-    .eq("id", sessionId)
+    .select("league_id, status")
+    .eq("id", sid)
     .single();
 
-  if (!session || session.league_id !== leagueId) {
+  if (!session || String(session.league_id).toLowerCase() !== lid) {
     return { error: "Invalid session." };
   }
+
+  const { data: gameRow, error: gErr } = await supabase
+    .from("games")
+    .select("id, session_id")
+    .eq("id", gameId)
+    .maybeSingle();
+
+  if (gErr || !gameRow || String(gameRow.session_id) !== sid) {
+    return { error: "Game not found." };
+  }
+
+  const wasCompleted = session.status === "completed";
+  const revErr = await reverseSkillRatingIfCompleted(supabase, sid, wasCompleted);
+  if (revErr) return { error: revErr };
 
   const { error } = await supabase.from("games").delete().eq("id", gameId);
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/leagues/${leagueId}/sessions/${sessionId}`);
-  revalidatePath(`/leagues/${leagueId}`);
+  const appErr = await applySkillRatingAfterCompletedEdit(supabase, sid, wasCompleted);
+  if (appErr) return { error: appErr };
+
+  revalidatePath(`/leagues/${lid}/sessions/${sid}`);
+  revalidatePath(`/leagues/${lid}`);
   return { ok: true };
 }

@@ -2,20 +2,26 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOnboarded } from "@/lib/auth/profile";
-import { generateLeagueCode } from "@/lib/league-code";
+import {
+  generateLeagueCode,
+  isValidLeagueInviteCode,
+  normalizeLeagueCode,
+} from "@/lib/league-code";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeUsername } from "@/lib/username";
+import { isLeagueFormat, sessionInputModeForFormat } from "@/lib/league-format";
 
 type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
 
 export async function createLeague(formData: FormData) {
   const { supabase, user } = await requireOnboarded();
   const name = String(formData.get("name") ?? "").trim();
-  const format = String(formData.get("format") ?? "").trim();
+  const formatRaw = String(formData.get("format") ?? "").trim();
 
-  if (!name || (format !== "king_of_court" && format !== "americano")) {
+  if (!name || !isLeagueFormat(formatRaw)) {
     return { error: "Invalid league details." };
   }
+  const format = formatRaw;
 
   const { data: player, error: pErr } = await supabase
     .from("players")
@@ -35,6 +41,7 @@ export async function createLeague(formData: FormData) {
       .insert({
         name,
         format,
+        results_mode: sessionInputModeForFormat(format),
         code,
         owner_id: user.id,
       })
@@ -82,18 +89,108 @@ export async function joinLeagueByCode(formData: FormData) {
     const msg = error.message;
     if (msg.includes("invalid code")) return { error: "Invalid league code." };
     if (msg.includes("already joined")) return { error: "You are already in this league." };
-    if (msg.includes("onboarding")) return { error: "Finish onboarding before joining." };
+    if (msg.includes("request already pending")) {
+      return { error: "You already have a pending request for this league." };
+    }
+    if (msg.includes("onboarding")) return { error: "Finish onboarding before requesting to join." };
     if (msg.includes("username required")) {
-      return { error: "Set a unique username on your profile before joining a league." };
+      return { error: "Set a unique username on your profile before requesting to join a league." };
     }
     if (msg.includes("username before joining")) {
-      return { error: "Set a unique username on your profile before joining a league." };
+      return { error: "Set a unique username on your profile before requesting to join a league." };
     }
     return { error: msg };
   }
 
   revalidatePath("/dashboard");
   return { leagueId: data as string };
+}
+
+export async function requestJoinLeagueByCode(leagueCode: string) {
+  const { supabase } = await requireOnboarded();
+  const code = leagueCode.trim();
+  if (!code) return { error: "Invalid league code." };
+
+  const { data, error } = await supabase.rpc("join_league_by_code", {
+    p_code: code,
+  });
+
+  if (error) {
+    const msg = error.message;
+    if (msg.includes("invalid code")) return { error: "Invalid league code." };
+    if (msg.includes("already joined")) return { error: "You are already in this league." };
+    if (msg.includes("request already pending")) {
+      return { error: "You already have a pending request for this league." };
+    }
+    if (msg.includes("onboarding")) return { error: "Finish onboarding before requesting to join." };
+    if (msg.includes("username required")) {
+      return { error: "Set a unique username on your profile before requesting to join a league." };
+    }
+    if (msg.includes("username before joining")) {
+      return { error: "Set a unique username on your profile before requesting to join a league." };
+    }
+    return { error: msg };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/join/${code.toUpperCase()}`);
+  return { leagueId: data as string };
+}
+
+export async function acceptJoinRequest(requestId: string) {
+  const { supabase, user } = await requireOnboarded();
+
+  const { data: row, error: qErr } = await supabase
+    .from("league_join_requests")
+    .select("league_id, status")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (qErr) return { error: qErr.message };
+  if (!row || row.status !== "pending") return { error: "Request not found." };
+
+  const leagueId = row.league_id as string;
+  if (!(await requireLeagueAdmin(supabase, user.id, leagueId))) {
+    return { error: "Not allowed." };
+  }
+
+  const { error } = await supabase.rpc("accept_join_request", {
+    p_request_id: requestId,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/leagues/${leagueId}`);
+  revalidatePath("/dashboard");
+  return { ok: true as const };
+}
+
+export async function declineJoinRequest(requestId: string) {
+  const { supabase, user } = await requireOnboarded();
+
+  const { data: row, error: qErr } = await supabase
+    .from("league_join_requests")
+    .select("league_id, status")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (qErr) return { error: qErr.message };
+  if (!row || row.status !== "pending") return { error: "Request not found." };
+
+  const leagueId = row.league_id as string;
+  if (!(await requireLeagueAdmin(supabase, user.id, leagueId))) {
+    return { error: "Not allowed." };
+  }
+
+  const { error } = await supabase.rpc("decline_join_request", {
+    p_request_id: requestId,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/leagues/${leagueId}`);
+  revalidatePath("/dashboard");
+  return { ok: true as const };
 }
 
 export async function addMemberByUsername(
@@ -462,5 +559,69 @@ export async function linkMemberPlayer(leagueId: string, targetUserId: string) {
   }
 
   revalidatePath(`/leagues/${leagueId}`);
+  return { ok: true };
+}
+
+export async function updateLeagueReferenceCode(leagueId: string, rawCode: string) {
+  const { supabase, user } = await requireOnboarded();
+  const id = leagueId.trim();
+  if (!id) return { error: "Invalid league." };
+
+  const { data: league, error: fetchErr } = await supabase
+    .from("leagues")
+    .select("id, owner_id, code")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchErr || !league) return { error: "League not found." };
+  if (league.owner_id !== user.id) {
+    return { error: "Only the league owner can change the reference code." };
+  }
+
+  if (!isValidLeagueInviteCode(rawCode)) {
+    return {
+      error:
+        "Use exactly 8 characters: letters A–Z except I and O, and digits 2–9 (no 0 or 1).",
+    };
+  }
+
+  const normalized = normalizeLeagueCode(rawCode);
+  const current = String(league.code ?? "").trim().toUpperCase();
+  if (normalized === current) {
+    return { ok: true };
+  }
+
+  const { error } = await supabase.from("leagues").update({ code: normalized }).eq("id", id);
+  if (error) {
+    if (error.code === "23505") return { error: "That reference code is already taken." };
+    return { error: error.message };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/leagues/${id}`);
+  return { ok: true };
+}
+
+export async function deleteLeague(leagueId: string) {
+  const { supabase, user } = await requireOnboarded();
+  const id = leagueId.trim();
+  if (!id) return { error: "Invalid league." };
+
+  const { data: league, error: fetchErr } = await supabase
+    .from("leagues")
+    .select("id, owner_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchErr || !league) return { error: "League not found." };
+  if (league.owner_id !== user.id) {
+    return { error: "Only the league owner can delete this league." };
+  }
+
+  const { error } = await supabase.from("leagues").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/leagues/${id}`);
   return { ok: true };
 }

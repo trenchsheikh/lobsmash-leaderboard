@@ -75,12 +75,15 @@ type OnboardingFlowProps = {
   variant: "onboarding" | "profile";
   /** Shown above the flow on profile (e.g. email). */
   accountSlot?: React.ReactNode;
+  /** After onboarding, submit join request and redirect (e.g. `/join/<league code>`). */
+  joinRedirectUrl?: string | null;
 };
 
 export function OnboardingFlow({
   defaults,
   variant,
   accountSlot,
+  joinRedirectUrl,
 }: OnboardingFlowProps) {
   const router = useRouter();
   const reducedMotion = usePrefersReducedMotion();
@@ -167,6 +170,9 @@ export function OnboardingFlow({
     fd.set("experience_level", experienceLevel);
     for (const s of strengths) fd.append("strengths", s);
     for (const w of weaknesses) fd.append("weaknesses", w);
+    if (variant === "onboarding" && joinRedirectUrl) {
+      fd.set("redirect_url", joinRedirectUrl);
+    }
     return fd;
   }
 
@@ -216,7 +222,11 @@ export function OnboardingFlow({
           setError(res.error);
           return;
         }
-        router.push("/dashboard");
+        if (res && "redirectTo" in res && typeof res.redirectTo === "string") {
+          router.push(res.redirectTo);
+        } else {
+          router.push("/dashboard");
+        }
         router.refresh();
         return;
       }

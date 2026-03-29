@@ -1,5 +1,6 @@
 import { requireOnboarded } from "@/lib/auth/profile";
 import type { FriendUserBrief, FriendshipListItem } from "@/lib/friends-types";
+import { DEFAULT_SKILL } from "@/lib/rating";
 
 export type AggregatedFriendStat = {
   player_id: string;
@@ -7,6 +8,8 @@ export type AggregatedFriendStat = {
   name: string;
   username: string | null;
   avatar_url: string | null;
+  /** Internal Elo-style skill (for sort / display mapping). */
+  skill: number;
   total_games: number;
   total_wins: number;
   court1_wins: number;
@@ -99,6 +102,16 @@ export async function loadFriendsPageData(): Promise<{
     .select("player_id, total_games, total_wins, court1_wins, total_points")
     .in("player_id", playerIds);
 
+  const { data: ratingRows } = await supabase
+    .from("player_ratings")
+    .select("player_id, skill")
+    .in("player_id", playerIds);
+
+  const skillByPlayerId = new Map<string, number>();
+  for (const r of ratingRows ?? []) {
+    skillByPlayerId.set(r.player_id as string, r.skill as number);
+  }
+
   const agg = new Map<
     string,
     {
@@ -138,6 +151,7 @@ export async function loadFriendsPageData(): Promise<{
       name: p.name,
       username: un,
       avatar_url: av,
+      skill: skillByPlayerId.get(p.id) ?? DEFAULT_SKILL,
       total_games: a.total_games,
       total_wins: a.total_wins,
       court1_wins: a.court1_wins,
@@ -146,6 +160,7 @@ export async function loadFriendsPageData(): Promise<{
   });
 
   leaderboard.sort((a, b) => {
+    if (b.skill !== a.skill) return b.skill - a.skill;
     if (b.total_wins !== a.total_wins) return b.total_wins - a.total_wins;
     if (b.total_points !== a.total_points) return b.total_points - a.total_points;
     if (b.total_games !== a.total_games) return b.total_games - a.total_games;

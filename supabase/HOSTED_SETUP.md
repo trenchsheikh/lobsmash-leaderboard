@@ -12,12 +12,15 @@ Apply migrations **in this order**:
 4. `migrations/20250328000003_users_username_league_guard.sql`
 5. **`migrations/20250328120000_clerk_jwt_text_ids.sql`** — required for Clerk (`user_...` ids + JWT `sub` RLS)
 6. `migrations/20250329000000_session_workflow.sql` — session wizard / `input_mode` / `session_teams`
-7. `migrations/20250329100000_user_last_seen.sql` — optional `last_seen_ip` / `last_seen_at` on `public.users` (audit; app records IP throttled)
-8. **`migrations/20250330120000_friendships.sql`** — friend requests/accept + friend visibility for stats
-9. **`migrations/20260328120000_user_avatar_storage.sql`** — `public.users.avatar_url`, public `avatars` storage bucket + policies (upload/delete under `{clerk_user_id}/**`). **Does not** require `friendships`; safe to run alone for photo uploads.
-10. **`migrations/20260328120001_search_users_friendship_avatar_url.sql`** — updates `search_users_for_friendship` to return `avatar_url`. **Requires step 8** (`public.friendships` must exist).
+7. `migrations/20250329110000_pair_championship_stats.sql` — pair championship leaderboard stats (`pair_championship_stats`, `recalculate_all_league_stats`)
+8. `migrations/20250329130000_session_court1_pair_wins.sql` — champ mode `session_court1_pair_wins` + stats recalc updates (**requires step 7**)
+8b. `migrations/20250329140000_league_results_mode.sql` — `leagues.results_mode` (full vs championship court only; locked at league creation)
+9. `migrations/20250329100000_user_last_seen.sql` — optional `last_seen_ip` / `last_seen_at` on `public.users` (audit; app records IP throttled)
+10. **`migrations/20250330120000_friendships.sql`** — friend requests/accept + friend visibility for stats
+11. **`migrations/20260328120000_user_avatar_storage.sql`** — `public.users.avatar_url`, public `avatars` storage bucket + policies (upload/delete under `{clerk_user_id}/**`). **Does not** require `friendships`; safe to run alone for photo uploads.
+12. **`migrations/20260328120001_search_users_friendship_avatar_url.sql`** — updates `search_users_for_friendship` to return `avatar_url`. **Requires step 10** (`public.friendships` must exist).
 
-**Avatar uploads only:** run step 9. If you use friend search with avatars, apply step 8 first (if not already), then step 10.
+**Avatar uploads only:** run step 11. If you use friend search with avatars, apply step 10 first (if not already), then step 12.
 
 If you use session features but applied step 6 before step 5, run step 5 anyway; it updates shared RLS helpers used by `session_teams` policies.
 
@@ -39,8 +42,10 @@ Only use this if you want a one-off script instead of pasting in the dashboard. 
    | Command | Migration |
    | --- | --- |
    | `npm run db:migrate:clerk` | Clerk JWT / text ids |
+   | `npm run db:migrate:pair-championship` | Pair championship stats (step 7) |
+   | `npm run db:migrate:session-court1-wins` | Champ court-1 pair wins table + recalc (step 8) |
    | `npm run db:migrate:last-seen` | Optional last-seen columns |
-   | `npm run db:migrate:friendships` | Friend requests + `search_users_for_friendship` (step 8) |
+   | `npm run db:migrate:friendships` | Friend requests + `search_users_for_friendship` (step 10) |
    | `npm run db:migrate:avatar-storage` | Avatars bucket + `avatar_url` |
    | `npm run db:migrate:avatar-search-rpc` | Friend search returns `avatar_url` (needs friendships) |
    | `npm run db:migrate:file -- supabase/migrations/ANY.sql` | Arbitrary single file |

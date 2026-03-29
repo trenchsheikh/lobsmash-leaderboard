@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/profile";
+import {
+  inviteUuidFromJoinPath,
+  isSafeJoinRedirectPath,
+  leagueCodeFromJoinPath,
+} from "@/lib/safe-redirect-url";
 import { normalizeUsername, validateUsernameFormat } from "@/lib/username";
 
 export async function completeOnboarding(formData: FormData) {
@@ -63,6 +68,25 @@ export async function completeOnboarding(formData: FormData) {
 
   if (playerErr) return { error: playerErr.message };
 
+  const redirectRaw = String(formData.get("redirect_url") ?? "").trim();
+  let redirectTo: string = "/dashboard";
+  if (isSafeJoinRedirectPath(redirectRaw)) {
+    redirectTo = redirectRaw;
+    const code = leagueCodeFromJoinPath(redirectRaw);
+    if (code) {
+      await supabase.rpc("join_league_by_code", { p_code: code });
+    } else {
+      const uuid = inviteUuidFromJoinPath(redirectRaw);
+      if (uuid) {
+        await supabase.rpc("request_join_league_by_invite_token", {
+          p_invite_token: uuid,
+        });
+      }
+    }
+    revalidatePath(redirectRaw);
+  }
+
   revalidatePath("/", "layout");
-  return { ok: true as const };
+  revalidatePath("/dashboard");
+  return { ok: true as const, redirectTo };
 }

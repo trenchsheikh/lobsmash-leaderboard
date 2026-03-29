@@ -5,7 +5,7 @@ create extension if not exists "pgcrypto";
 create schema if not exists private;
 
 -- Enums
-create type public.league_format as enum ('king_of_court', 'americano');
+create type public.league_format as enum ('summit', 'americano');
 create type public.league_member_role as enum ('owner', 'admin', 'player');
 create type public.session_status as enum ('draft', 'active', 'completed');
 

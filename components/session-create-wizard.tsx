@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { completeSession } from "@/app/actions/sessions";
 import {
+  replaceSessionCourt1PairWins,
   replaceSessionGames,
   updateSessionDraftMeta,
   upsertSessionTeams,
@@ -16,6 +17,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import {
+  averageTeamSkill,
+  expectedChampShares,
+  expectedWinForSides,
+  formatDisplayLevel,
+  formatPercent,
+  skillForPlayer,
+} from "@/lib/rating";
 import { Check, Plus, Shuffle, Trash2 } from "lucide-react";
 
 export type RosterPlayer = {
@@ -51,7 +60,7 @@ function labelForPlayer(p: RosterPlayer): string {
   return `${p.displayName}${p.isGuest ? " (guest)" : ""}`;
 }
 
-type GameRowState = {
+export type GameRowState = {
   courtNumber: number;
   teamAIdx: number;
   teamBIdx: number;
@@ -65,23 +74,58 @@ export function SessionCreateWizard({
   sessionId,
   defaultCourts,
   roster,
+  leagueResultsMode,
+  initialNumCourts,
+  initialCourt1PairWins = [],
+  skillsByPlayerId = {},
+  initialDate,
+  initialTeams,
+  initialGameRows,
+  initialAttendingIds,
+  sessionCompletionStatus = "draft",
 }: {
   leagueId: string;
   sessionId: string;
   defaultCourts: number;
   roster: RosterPlayer[];
+  leagueResultsMode: InputMode;
+  initialNumCourts?: number;
+  initialCourt1PairWins?: { player_low: string; player_high: string; wins: number }[];
+  /** Global `player_ratings.skill` by `player_id` (missing → default). */
+  skillsByPlayerId?: Record<string, number>;
+  /** When editing an existing draft, hydrate date/teams/games from the server. */
+  initialDate?: string;
+  initialTeams?: [string, string][];
+  initialGameRows?: GameRowState[];
+  /** Roster order; defaults to roster players that appear in `initialTeams`. */
+  initialAttendingIds?: string[];
+  /** Completed sessions hide “Complete session”; saves still update leaderboard and padel levels. */
+  sessionCompletionStatus?: "draft" | "completed";
 }) {
   const router = useRouter();
+  const isCompletedSession = sessionCompletionStatus === "completed";
   const [pending, startTransition] = useTransition();
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const [date, setDate] = useState(today);
-  const [courtsInput, setCourtsInput] = useState(() => String(defaultCourts));
-  const [inputMode, setInputMode] = useState<InputMode>("full");
+  const [date, setDate] = useState(
+    () => initialDate ?? new Date().toISOString().slice(0, 10),
+  );
+  const [courtsInput, setCourtsInput] = useState(() =>
+    String(initialNumCourts ?? defaultCourts),
+  );
+  const inputMode = leagueResultsMode;
 
-  const [attendingIds, setAttendingIds] = useState<string[]>([]);
-  const [teams, setTeams] = useState<[string, string][]>([]);
-  const [teamMode, setTeamMode] = useState<"spin" | "manual">("spin");
+  const [attendingIds, setAttendingIds] = useState<string[]>(() => {
+    if (initialAttendingIds?.length) return initialAttendingIds;
+    if (initialTeams?.length) {
+      const ids = new Set(initialTeams.flat());
+      return roster.map((r) => r.playerId).filter((id) => ids.has(id));
+    }
+    return [];
+  });
+  const [teams, setTeams] = useState<[string, string][]>(() => initialTeams ?? []);
+  const [teamMode, setTeamMode] = useState<"spin" | "manual">(() =>
+    initialTeams && initialTeams.length > 0 ? "manual" : "spin",
+  );
   const [manualPick, setManualPick] = useState<string | null>(null);
   const [playerSwapPick, setPlayerSwapPick] = useState<{
     teamIdx: number;
@@ -89,14 +133,26 @@ export function SessionCreateWizard({
   } | null>(null);
   const playerSwapPickRef = useRef<{ teamIdx: number; slot: 0 | 1 } | null>(null);
 
-  const [gameRows, setGameRows] = useState<GameRowState[]>([]);
+  const [gameRows, setGameRows] = useState<GameRowState[]>(
+    () => initialGameRows ?? [],
+  );
+  const [champCourt1WinsStr, setChampCourt1WinsStr] = useState<string[]>([]);
 
-  const numCourts = useMemo(() => {
-    if (inputMode === "champ_court_only") return 1;
-    return courtsFromString(courtsInput, defaultCourts);
-  }, [courtsInput, inputMode, defaultCourts]);
+  const numCourts = useMemo(
+    () => courtsFromString(courtsInput, defaultCourts),
+    [courtsInput, defaultCourts],
+  );
 
-  const effectiveCourts = inputMode === "champ_court_only" ? 1 : numCourts;
+  const effectiveCourts = numCourts;
+
+  const champExpectedShares = useMemo(() => {
+    if (inputMode !== "champ_court_only" || teams.length === 0) return [] as number[];
+    const pairSkills = teams.map(
+      ([a, b]) =>
+        (skillForPlayer(a, skillsByPlayerId) + skillForPlayer(b, skillsByPlayerId)) / 2,
+    );
+    return expectedChampShares(pairSkills);
+  }, [inputMode, teams, skillsByPlayerId]);
 
   const maxSelectablePlayers = effectiveCourts * 4;
   const requiredPlayersForSession = maxSelectablePlayers;
@@ -114,9 +170,21 @@ export function SessionCreateWizard({
   }, [attendingIds]);
 
   useEffect(() => {
-    if (inputMode !== "champ_court_only") return;
-    setGameRows((rows) => rows.map((r) => ({ ...r, courtNumber: 1 })));
-  }, [inputMode]);
+    setCourtsInput(String(initialNumCourts ?? defaultCourts));
+  }, [initialNumCourts, defaultCourts]);
+
+  useEffect(() => {
+    if (initialCourt1PairWins.length === 0 || teams.length === 0) return;
+    setChampCourt1WinsStr((prev) => {
+      if (prev.length === teams.length) return prev;
+      return teams.map(([a, b]) => {
+        const lo = a < b ? a : b;
+        const hi = a < b ? b : a;
+        const row = initialCourt1PairWins.find((x) => x.player_low === lo && x.player_high === hi);
+        return String(row?.wins ?? 0);
+      });
+    });
+  }, [initialCourt1PairWins, teams]);
 
   function toggleAttend(id: string) {
     setAttendingIds((prev) => {
@@ -176,10 +244,9 @@ export function SessionCreateWizard({
       toast.error("Create at least one team.");
       return;
     }
-    const nCourts = inputMode === "champ_court_only" ? 1 : numCourts;
-    if (teams.length < nCourts * 2) {
+    if (teams.length < numCourts * 2) {
       toast.error(
-        `Need at least ${nCourts * 2} teams for ${nCourts} court${nCourts === 1 ? "" : "s"} (${nCourts * 2} pairs of players).`,
+        `Need at least ${numCourts * 2} teams for ${numCourts} court${numCourts === 1 ? "" : "s"} (${numCourts * 2} pairs of players).`,
       );
       return;
     }
@@ -190,16 +257,29 @@ export function SessionCreateWizard({
         toast.error(res.error);
         return;
       }
-      setGameRows(
-        Array.from({ length: nCourts }, (_, i) => ({
-          courtNumber: i + 1,
-          teamAIdx: i * 2,
-          teamBIdx: i * 2 + 1,
-          scoreAStr: "6",
-          scoreBStr: "4",
-          winner: "team_a" as const,
-        })),
-      );
+      if (inputMode === "full") {
+        setGameRows(
+          Array.from({ length: numCourts }, (_, i) => ({
+            courtNumber: i + 1,
+            teamAIdx: i * 2,
+            teamBIdx: i * 2 + 1,
+            scoreAStr: "6",
+            scoreBStr: "4",
+            winner: "team_a" as const,
+          })),
+        );
+        setChampCourt1WinsStr([]);
+      } else {
+        setGameRows([]);
+        setChampCourt1WinsStr(
+          teams.map(([a, b]) => {
+            const lo = a < b ? a : b;
+            const hi = a < b ? b : a;
+            const row = initialCourt1PairWins.find((x) => x.player_low === lo && x.player_high === hi);
+            return String(row?.wins ?? 0);
+          }),
+        );
+      }
       router.refresh();
     });
   }
@@ -213,7 +293,66 @@ export function SessionCreateWizard({
     return String(parseScoreInt(s));
   }
 
+  function parseCourt1Wins(s: string): number {
+    const n = parseInt(s.trim(), 10);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.min(999, Math.floor(n));
+  }
+
+  const champSessionLeaders = useMemo(() => {
+    if (inputMode !== "champ_court_only") return null;
+    if (teams.length === 0 || champCourt1WinsStr.length !== teams.length) return null;
+    const scores = teams.map((pair, i) => ({
+      wins: parseCourt1Wins(champCourt1WinsStr[i] ?? "0"),
+      label: pair
+        .map((id) => roster.find((r) => r.playerId === id)?.displayName ?? "Player")
+        .join(" · "),
+    }));
+    const maxW = Math.max(0, ...scores.map((s) => s.wins));
+    if (maxW <= 0) return { maxW: 0, labels: [] as string[] };
+    const labels = scores.filter((s) => s.wins === maxW).map((s) => s.label);
+    return { maxW, labels };
+  }, [inputMode, teams, champCourt1WinsStr, roster]);
+
+  /** Persists current teams to `session_teams`, then court-1 wins. Server validates pairs against saved teams. */
+  async function persistChampCourt1Results(): Promise<{ error?: string }> {
+    if (teams.length < teamsRequired) {
+      return { error: "Save teams first (need enough pairs for every court)." };
+    }
+    if (champCourt1WinsStr.length !== teams.length) {
+      return { error: "Court 1 wins are out of sync with teams — save teams again." };
+    }
+    const rows = teams.map(([playerA, playerB], i) => ({
+      playerA,
+      playerB,
+      wins: parseCourt1Wins(champCourt1WinsStr[i] ?? "0"),
+    }));
+    const teamPayload = teams.map(([playerA, playerB]) => ({ playerA, playerB }));
+    const teamRes = await upsertSessionTeams(leagueId, sessionId, teamPayload);
+    if ("error" in teamRes && teamRes.error) {
+      return { error: teamRes.error };
+    }
+    const res = await replaceSessionCourt1PairWins(leagueId, sessionId, rows);
+    if ("error" in res && res.error) {
+      return { error: res.error };
+    }
+    return {};
+  }
+
   function onSaveGames() {
+    if (inputMode === "champ_court_only") {
+      startTransition(async () => {
+        const out = await persistChampCourt1Results();
+        if (out.error) {
+          toast.error(out.error);
+          return;
+        }
+        toast.success("Court 1 results saved");
+        router.refresh();
+      });
+      return;
+    }
+
     const teamList = teams;
     const games: GameRowInput[] = [];
 
@@ -244,7 +383,6 @@ export function SessionCreateWizard({
     startTransition(async () => {
       const res = await replaceSessionGames(leagueId, sessionId, games, {
         numCourts: effectiveCourts,
-        inputMode,
       });
       if ("error" in res && res.error) {
         toast.error(res.error);
@@ -257,9 +395,15 @@ export function SessionCreateWizard({
 
   function onComplete() {
     startTransition(async () => {
+      if (inputMode === "champ_court_only") {
+        const out = await persistChampCourt1Results();
+        if (out.error) {
+          toast.error(out.error);
+          return;
+        }
+      }
       const res = await completeSession(leagueId, sessionId, {
         numCourts: effectiveCourts,
-        inputMode,
       });
       if ("error" in res && res.error) {
         toast.error(res.error);
@@ -291,20 +435,6 @@ export function SessionCreateWizard({
     swapPlayers(pending.teamIdx, pending.slot, teamIdx, slot);
     playerSwapPickRef.current = null;
     setPlayerSwapPick(null);
-  }
-
-  function applyInputMode(mode: InputMode) {
-    setInputMode(mode);
-    startTransition(async () => {
-      const nc = mode === "champ_court_only" ? 1 : courtsFromString(courtsInput, defaultCourts);
-      const res = await updateSessionDraftMeta(leagueId, sessionId, {
-        date,
-        numCourts: nc,
-        inputMode: mode,
-      });
-      if ("error" in res && res.error) toast.error(res.error);
-      else router.refresh();
-    });
   }
 
   const atAttendanceCap = attendingIds.length >= maxSelectablePlayers;
@@ -350,6 +480,12 @@ export function SessionCreateWizard({
 
   return (
     <div className="flex flex-col gap-8">
+      {isCompletedSession ? (
+        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          This session is already <span className="font-medium text-foreground">complete</span>. Saving teams or
+          results updates the league standings and global padel levels for everyone in this session.
+        </div>
+      ) : null}
       <section className="flex flex-col gap-4">
         <h2 className="text-sm font-semibold tracking-tight">Session details</h2>
         <div className="space-y-2">
@@ -362,11 +498,9 @@ export function SessionCreateWizard({
               const v = e.target.value;
               setDate(v);
               startTransition(async () => {
-                const nc = inputMode === "champ_court_only" ? 1 : numCourts;
                 const res = await updateSessionDraftMeta(leagueId, sessionId, {
                   date: v,
-                  numCourts: nc,
-                  inputMode,
+                  numCourts,
                 });
                 if ("error" in res && res.error) toast.error(res.error);
                 else router.refresh();
@@ -374,83 +508,50 @@ export function SessionCreateWizard({
             }}
           />
         </div>
-        <div className="space-y-3">
-          <div>
-            <Label className="text-base">What results are you recording?</Label>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Pick how much of the night you want to enter on the leaderboard.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => applyInputMode("full")}
-              className={cn(
-                "flex flex-col gap-1 rounded-xl border px-4 py-3 text-left text-sm transition-all",
-                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                "disabled:pointer-events-none disabled:opacity-50",
-                "hover:border-primary/40 hover:shadow-md",
-                inputMode === "full"
-                  ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/35"
-                  : "border-border bg-card ring-foreground/10 ring-1",
-              )}
-            >
-              <span className="font-medium">Full session</span>
-              <span className="text-muted-foreground text-xs leading-snug">
-                Record scores for every court. Best when you track the whole night.
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => applyInputMode("champ_court_only")}
-              className={cn(
-                "flex flex-col gap-1 rounded-xl border px-4 py-3 text-left text-sm transition-all",
-                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                "disabled:pointer-events-none disabled:opacity-50",
-                "hover:border-primary/40 hover:shadow-md",
-                inputMode === "champ_court_only"
-                  ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/35"
-                  : "border-border bg-card ring-foreground/10 ring-1",
-              )}
-            >
-              <span className="font-medium">Championship court only</span>
-              <span className="text-muted-foreground text-xs leading-snug">
-                Only court 1 — the champ match. Use when that&apos;s all you need on the board.
-              </span>
-            </button>
-          </div>
-        </div>
-        {inputMode === "full" ? (
-          <div className="space-y-2">
-            <Label htmlFor="sess-courts">Courts (1–12)</Label>
-            <Input
-              id="sess-courts"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="off"
-              value={courtsInput}
-              onChange={(e) => setCourtsInput(e.target.value.replace(/[^\d]/g, ""))}
-              onBlur={() => {
-                const next = courtsFromString(courtsInput, defaultCourts);
-                setCourtsInput(String(next));
-                startTransition(async () => {
-                  const res = await updateSessionDraftMeta(leagueId, sessionId, {
-                    date,
-                    numCourts: next,
-                    inputMode,
-                  });
-                  if ("error" in res && res.error) toast.error(res.error);
-                  else router.refresh();
+        <p className="text-muted-foreground text-sm">
+          {inputMode === "full" ? (
+            <>
+              This league records <span className="font-medium text-foreground">full session</span> results
+              (game scores per court). The mode was set when the league was created and cannot be changed here.
+            </>
+          ) : (
+            <>
+              This league records <span className="font-medium text-foreground">championship court only</span>{" "}
+              results (court 1 win counts per team). The mode was set when the league was created and cannot be
+              changed here.
+            </>
+          )}
+        </p>
+        <div className="space-y-2">
+          <Label htmlFor="sess-courts">Courts in play (1–12)</Label>
+          <Input
+            id="sess-courts"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="off"
+            value={courtsInput}
+            onChange={(e) => setCourtsInput(e.target.value.replace(/[^\d]/g, ""))}
+            onBlur={() => {
+              const next = courtsFromString(courtsInput, defaultCourts);
+              setCourtsInput(String(next));
+              startTransition(async () => {
+                const res = await updateSessionDraftMeta(leagueId, sessionId, {
+                  date,
+                  numCourts: next,
                 });
-              }}
-            />
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            One court (court 1). Enter the winners for the champ match only.
-          </p>
-        )}
+                if ("error" in res && res.error) toast.error(res.error);
+                else router.refresh();
+              });
+            }}
+          />
+          {inputMode === "champ_court_only" ? (
+            <p className="text-muted-foreground text-xs">
+              Roster and teams use this many courts (×4 players, ×2 teams per court). Only court 1 wins
+              you enter below affect stats.
+            </p>
+          ) : null}
+        </div>
       </section>
 
       <section className="flex flex-col gap-4 border-t border-border pt-6">
@@ -732,6 +833,25 @@ export function SessionCreateWizard({
                   >
                     <div className="min-w-0 flex-1 space-y-2">
                       <p className="text-muted-foreground text-xs font-medium">Team {idx + 1}</p>
+                      <p className="text-muted-foreground text-[11px] leading-snug">
+                        Model avg Lv{" "}
+                        {formatDisplayLevel(
+                          averageTeamSkill([pair[0], pair[1]], skillsByPlayerId),
+                        )}
+                        {inputMode === "champ_court_only" &&
+                        champExpectedShares[idx] !== undefined ? (
+                          <>
+                            {" "}
+                            · Exp Win (levels):{" "}
+                            <span
+                              className="font-medium text-foreground"
+                              title="Expected share of court-1 wins for this pair vs all pairs here (softmax from padel levels)—not actual win %."
+                            >
+                              {formatPercent(champExpectedShares[idx]!, 1)}
+                            </span>
+                          </>
+                        ) : null}
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
@@ -809,14 +929,113 @@ export function SessionCreateWizard({
       <section className="flex flex-col gap-5 border-t border-border pt-6">
         <div>
           <h2 className="text-sm font-semibold tracking-tight">Match results</h2>
-          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            Log each game you want on the leaderboard. The same two teams can play again—add another row. In
-            full mode, include at least one game per court ({effectiveCourts} court
-            {effectiveCourts === 1 ? "" : "s"}); extras can be rematches or pickup games.
-          </p>
+          {inputMode === "champ_court_only" ? (
+            <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+              For each team, enter how many times they won on <span className="font-medium text-foreground">court 1</span>{" "}
+              only. Wins on other courts are not stored. No scores needed. Each pair shows{" "}
+              <span className="font-medium text-foreground">Exp Win (levels)</span>—how much of the session&apos;s
+              court‑1 wins we&apos;d expect for that pair vs the others (softmax—not head‑to‑head).
+            </p>
+          ) : (
+            <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+              Log each game you want on the leaderboard. The same two teams can play again—add another row. Include
+              at least one game per court ({effectiveCourts} court{effectiveCourts === 1 ? "" : "s"}); extras can be
+              rematches or pickup games. Side odds use your global padel levels (team Elo-style model).
+            </p>
+          )}
         </div>
 
-        {gameRows.length === 0 ? (
+        {inputMode === "champ_court_only" ? (
+          champCourt1WinsStr.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Save teams above to enter court 1 wins for each pair.
+            </p>
+          ) : (
+            <>
+              {champSessionLeaders && champSessionLeaders.maxW > 0 ? (
+                <div className="rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
+                  <p className="font-medium text-foreground">
+                    Session leader{champSessionLeaders.labels.length === 1 ? "" : "s"} (court 1 wins)
+                  </p>
+                  <p className="text-muted-foreground mt-1">
+                    {champSessionLeaders.labels.join(" · ")} — {champSessionLeaders.maxW} win
+                    {champSessionLeaders.maxW === 1 ? "" : "s"}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  Enter at least one win on court 1 for a team before completing the session.
+                </p>
+              )}
+
+              <ul className="flex flex-col gap-3">
+                {teams.map((pair, idx) => {
+                  const pA = roster.find((r) => r.playerId === pair[0])!;
+                  const pB = roster.find((r) => r.playerId === pair[1])!;
+                  return (
+                    <li
+                      key={`${pair[0]}-${pair[1]}-${idx}`}
+                      className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-border/80 bg-muted/15 p-4"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-muted-foreground text-xs font-medium">Team {idx + 1}</p>
+                        <p className="mt-1 font-medium">
+                          {pA.displayName} · {pB.displayName}
+                        </p>
+                        {champExpectedShares[idx] !== undefined ? (
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            Exp Win (levels):{" "}
+                            <span className="font-medium text-foreground">
+                              {formatPercent(champExpectedShares[idx]!, 1)}
+                            </span>
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="grid w-full gap-1 sm:w-40">
+                        <Label className="text-xs" htmlFor={`c1w-${idx}`}>
+                          Wins on court 1
+                        </Label>
+                        <Input
+                          id={`c1w-${idx}`}
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={champCourt1WinsStr[idx] ?? "0"}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/[^\d]/g, "");
+                            setChampCourt1WinsStr((prev) => {
+                              const next = [...prev];
+                              next[idx] = v;
+                              return next;
+                            });
+                          }}
+                          onBlur={() => {
+                            setChampCourt1WinsStr((prev) => {
+                              const next = [...prev];
+                              next[idx] = String(parseCourt1Wins(next[idx] ?? "0"));
+                              return next;
+                            });
+                          }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button type="button" disabled={pending} onClick={onSaveGames}>
+                  Save results
+                </Button>
+                {!isCompletedSession ? (
+                  <Button type="button" disabled={pending} onClick={onComplete}>
+                    Complete session
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          )
+        ) : gameRows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Save teams above to start entering scores. You can add more games anytime.
           </p>
@@ -825,11 +1044,9 @@ export function SessionCreateWizard({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-muted-foreground text-xs">
                 {gameRows.length} game{gameRows.length === 1 ? "" : "s"} recorded
-                {inputMode === "full" && missingCourtsMessage.length > 0
+                {missingCourtsMessage.length > 0
                   ? ` · Still need court${missingCourtsMessage.length === 1 ? "" : "s"}: ${missingCourtsMessage.join(", ")}`
-                  : inputMode === "full"
-                    ? " · All courts have at least one game"
-                    : ""}
+                  : " · All courts have at least one game"}
               </p>
               <Button
                 type="button"
@@ -860,6 +1077,14 @@ export function SessionCreateWizard({
                   : null;
                 const labelA = pA?.map((p) => p.displayName).join(" · ") ?? `Team ${row.teamAIdx + 1}`;
                 const labelB = pB?.map((p) => p.displayName).join(" · ") ?? `Team ${row.teamBIdx + 1}`;
+                const winEst =
+                  teams[row.teamAIdx] && teams[row.teamBIdx]
+                    ? expectedWinForSides(
+                        teams[row.teamAIdx]!,
+                        teams[row.teamBIdx]!,
+                        skillsByPlayerId,
+                      )
+                    : null;
                 return (
                   <li
                     key={idx}
@@ -899,6 +1124,13 @@ export function SessionCreateWizard({
                         ))}
                       </select>
                     </div>
+
+                    {winEst ? (
+                      <p className="mb-3 text-muted-foreground text-xs">
+                        Side odds (padel levels): A {formatPercent(winEst.teamA, 0)} · B{" "}
+                        {formatPercent(winEst.teamB, 0)}
+                      </p>
+                    ) : null}
 
                     <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end sm:gap-2">
                       <div className="space-y-1">
@@ -1046,9 +1278,11 @@ export function SessionCreateWizard({
               <Button type="button" disabled={pending} onClick={onSaveGames}>
                 Save results
               </Button>
-              <Button type="button" disabled={pending} onClick={onComplete}>
-                Complete session
-              </Button>
+              {!isCompletedSession ? (
+                <Button type="button" disabled={pending} onClick={onComplete}>
+                  Complete session
+                </Button>
+              ) : null}
             </div>
           </>
         )}

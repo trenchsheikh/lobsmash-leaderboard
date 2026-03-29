@@ -28,6 +28,7 @@ export function CompleteSessionButton({
             return;
           }
           toast.success("Session completed");
+          router.push(`/leagues/${leagueId}`);
           router.refresh();
         });
       }}

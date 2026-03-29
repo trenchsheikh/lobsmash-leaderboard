@@ -5,6 +5,7 @@ const isPublicRoute = createRouteMatcher([
   "/login(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/join(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
@@ -21,6 +22,17 @@ export default clerkMiddleware(async (auth, request) => {
     (request.nextUrl.pathname.startsWith("/login") ||
       request.nextUrl.pathname.startsWith("/sign-up"))
   ) {
+    const redirectUrl = request.nextUrl.searchParams.get("redirect_url");
+    if (redirectUrl?.startsWith("/join/")) {
+      try {
+        const u = new URL(redirectUrl, request.url);
+        if (u.pathname.startsWith("/join/")) {
+          return NextResponse.redirect(u);
+        }
+      } catch {
+        /* fall through */
+      }
+    }
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

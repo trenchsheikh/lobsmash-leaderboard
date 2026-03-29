@@ -1,7 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireOnboarded } from "@/lib/auth/profile";
+import { isLeagueFormat, sessionInputModeForFormat } from "@/lib/league-format";
+import {
+  applySkillRatingAfterCompletedEdit,
+  reverseSkillRatingIfCompleted,
+} from "@/lib/session-skill-rating";
 
 export type InputMode = "full" | "champ_court_only";
 
@@ -25,7 +31,6 @@ export async function createSessionDraft(
   input: {
     date: string;
     numCourts: number;
-    inputMode: InputMode;
   },
   options?: { revalidate?: boolean },
 ) {
@@ -41,17 +46,20 @@ export async function createSessionDraft(
   if (!Number.isInteger(n) || n < 1 || n > 12) {
     return { error: "Number of courts must be 1–12." };
   }
-  if (input.inputMode !== "full" && input.inputMode !== "champ_court_only") {
-    return { error: "Invalid input mode." };
-  }
 
   const { data: league, error: lErr } = await supabase
     .from("leagues")
-    .select("id")
+    .select("id, format")
     .eq("id", leagueId)
     .maybeSingle();
 
   if (lErr || !league) return { error: "League not found." };
+
+  const formatRaw = String(league.format ?? "");
+  if (!isLeagueFormat(formatRaw)) {
+    return { error: "Invalid league format." };
+  }
+  const inputMode = sessionInputModeForFormat(formatRaw);
 
   const { data, error } = await supabase
     .from("sessions")
@@ -61,7 +69,7 @@ export async function createSessionDraft(
       date: dateRaw,
       status: "draft",
       num_courts: n,
-      input_mode: input.inputMode,
+      input_mode: inputMode as InputMode,
     })
     .select("id")
     .single();
@@ -76,17 +84,57 @@ export async function createSessionDraft(
   return { sessionId };
 }
 
+/**
+ * Creates a draft only after an explicit user action (not on GET).
+ * Avoids ghost drafts from link prefetch or duplicate RSC runs hitting /sessions/new.
+ */
+export async function beginNewSessionDraft(
+  leagueId: string,
+): Promise<{ error: string } | undefined> {
+  const { supabase, user } = await requireOnboarded();
+  const lid = leagueId.trim().toLowerCase();
+  if (!(await requireLeagueAdmin(supabase, lid, user.id))) {
+    return { error: "Not allowed." };
+  }
+
+  const { data: leagueRow } = await supabase
+    .from("leagues")
+    .select("last_court_count")
+    .eq("id", lid)
+    .maybeSingle();
+
+  const lc = leagueRow?.last_court_count as number | null | undefined;
+  const defaultCourts =
+    typeof lc === "number" && lc >= 1 && lc <= 12 ? lc : 4;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const result = await createSessionDraft(
+    lid,
+    { date: today, numCourts: defaultCourts },
+    { revalidate: true },
+  );
+
+  if ("error" in result && result.error) {
+    return { error: result.error };
+  }
+
+  const sessionId = (result as { sessionId: string }).sessionId;
+  revalidatePath(`/leagues/${lid}`);
+  redirect(`/leagues/${lid}/sessions/${sessionId}/edit`);
+}
+
 export async function updateSessionDraftMeta(
   leagueId: string,
   sessionId: string,
   input: {
     date: string;
     numCourts: number;
-    inputMode: InputMode;
   },
 ) {
   const { supabase, user } = await requireOnboarded();
-  if (!(await requireLeagueAdmin(supabase, leagueId, user.id))) {
+  const lid = leagueId.trim().toLowerCase();
+  const sid = sessionId.trim().toLowerCase();
+  if (!(await requireLeagueAdmin(supabase, lid, user.id))) {
     return { error: "Not allowed." };
   }
 
@@ -97,37 +145,86 @@ export async function updateSessionDraftMeta(
   if (!Number.isInteger(n) || n < 1 || n > 12) {
     return { error: "Number of courts must be 1–12." };
   }
-  if (input.inputMode !== "full" && input.inputMode !== "champ_court_only") {
-    return { error: "Invalid input mode." };
-  }
 
   const { data: session, error: sErr } = await supabase
     .from("sessions")
     .select("id, league_id, status")
-    .eq("id", sessionId)
+    .eq("id", sid)
     .maybeSingle();
 
-  if (sErr || !session || session.league_id !== leagueId) {
+  if (
+    sErr ||
+    !session ||
+    String(session.league_id).toLowerCase() !== lid
+  ) {
     return { error: "Session not found." };
   }
-  if (session.status === "completed") {
-    return { error: "Cannot edit a completed session." };
+
+  const { data: league, error: lErr } = await supabase
+    .from("leagues")
+    .select("format")
+    .eq("id", lid)
+    .maybeSingle();
+
+  if (lErr || !league) return { error: "League not found." };
+  const formatRaw = String(league.format ?? "");
+  if (!isLeagueFormat(formatRaw)) {
+    return { error: "Invalid league format." };
   }
+  const inputMode = sessionInputModeForFormat(formatRaw);
 
   const { error: uErr } = await supabase
     .from("sessions")
     .update({
       date: dateRaw,
       num_courts: n,
-      input_mode: input.inputMode,
+      input_mode: inputMode as InputMode,
     })
-    .eq("id", sessionId)
-    .eq("league_id", leagueId);
+    .eq("id", sid)
+    .eq("league_id", lid);
 
   if (uErr) return { error: uErr.message };
 
-  revalidatePath(`/leagues/${leagueId}/sessions/${sessionId}`);
-  revalidatePath(`/leagues/${leagueId}`);
+  revalidatePath(`/leagues/${lid}/sessions/${sid}`);
+  revalidatePath(`/leagues/${lid}`);
+  return { ok: true as const };
+}
+
+export async function deleteSessionDraft(leagueId: string, sessionId: string) {
+  const { supabase, user } = await requireOnboarded();
+  const lid = leagueId.trim().toLowerCase();
+  const sid = sessionId.trim().toLowerCase();
+  if (!(await requireLeagueAdmin(supabase, lid, user.id))) {
+    return { error: "Not allowed." };
+  }
+
+  const { data: session, error: sErr } = await supabase
+    .from("sessions")
+    .select("id, league_id, status")
+    .eq("id", sid)
+    .maybeSingle();
+
+  if (
+    sErr ||
+    !session ||
+    String(session.league_id).toLowerCase() !== lid
+  ) {
+    return { error: "Session not found." };
+  }
+  if (session.status !== "draft") {
+    return { error: "Only draft sessions can be deleted." };
+  }
+
+  const { error: dErr } = await supabase
+    .from("sessions")
+    .delete()
+    .eq("id", sid)
+    .eq("league_id", lid);
+
+  if (dErr) return { error: dErr.message };
+
+  revalidatePath(`/leagues/${lid}`);
+  revalidatePath(`/leagues/${lid}/sessions/${sid}`);
   return { ok: true as const };
 }
 
@@ -137,22 +234,23 @@ export async function upsertSessionTeams(
   teams: { playerA: string; playerB: string }[],
 ) {
   const { supabase, user } = await requireOnboarded();
-  if (!(await requireLeagueAdmin(supabase, leagueId, user.id))) {
+  const lid = leagueId.trim().toLowerCase();
+  const sid = sessionId.trim().toLowerCase();
+  if (!(await requireLeagueAdmin(supabase, lid, user.id))) {
     return { error: "Not allowed." };
   }
 
   const { data: session, error: sErr } = await supabase
     .from("sessions")
     .select("id, league_id, status")
-    .eq("id", sessionId)
+    .eq("id", sid)
     .maybeSingle();
 
-  if (sErr || !session || session.league_id !== leagueId) {
+  if (sErr || !session || String(session.league_id).toLowerCase() !== lid) {
     return { error: "Session not found." };
   }
-  if (session.status === "completed") {
-    return { error: "Cannot edit teams on a completed session." };
-  }
+
+  const wasCompleted = session.status === "completed";
 
   const seen = new Set<string>();
   for (const t of teams) {
@@ -166,7 +264,7 @@ export async function upsertSessionTeams(
   const { data: roster } = await supabase
     .from("league_players")
     .select("player_id")
-    .eq("league_id", leagueId);
+    .eq("league_id", lid);
 
   const rosterIds = new Set((roster ?? []).map((r) => r.player_id as string));
   for (const t of teams) {
@@ -175,12 +273,16 @@ export async function upsertSessionTeams(
     }
   }
 
-  await supabase.from("session_teams").delete().eq("session_id", sessionId);
+  const revErr = await reverseSkillRatingIfCompleted(supabase, sid, wasCompleted);
+  if (revErr) return { error: revErr };
+
+  await supabase.from("session_teams").delete().eq("session_id", sid);
+  await supabase.from("session_court1_pair_wins").delete().eq("session_id", sid);
 
   if (teams.length > 0) {
     const { error: insErr } = await supabase.from("session_teams").insert(
       teams.map((t, i) => ({
-        session_id: sessionId,
+        session_id: sid,
         sort_order: i,
         player_a: t.playerA,
         player_b: t.playerB,
@@ -189,8 +291,11 @@ export async function upsertSessionTeams(
     if (insErr) return { error: insErr.message };
   }
 
-  revalidatePath(`/leagues/${leagueId}/sessions/${sessionId}`);
-  revalidatePath(`/leagues/${leagueId}`);
+  const appErr = await applySkillRatingAfterCompletedEdit(supabase, sid, wasCompleted);
+  if (appErr) return { error: appErr };
+
+  revalidatePath(`/leagues/${lid}/sessions/${sid}`);
+  revalidatePath(`/leagues/${lid}`);
   return { ok: true as const };
 }
 
@@ -205,8 +310,105 @@ export type GameRowInput = {
 
 export type SessionWizardMeta = {
   numCourts: number;
-  inputMode: InputMode;
 };
+
+export type Court1PairWinInput = {
+  playerA: string;
+  playerB: string;
+  wins: number;
+};
+
+function canonicalPairIds(a: string, b: string): [string, string] {
+  return a < b ? [a, b] : [b, a];
+}
+
+export async function replaceSessionCourt1PairWins(
+  leagueId: string,
+  sessionId: string,
+  rows: Court1PairWinInput[],
+) {
+  const { supabase, user } = await requireOnboarded();
+  const lid = leagueId.trim().toLowerCase();
+  const sid = sessionId.trim().toLowerCase();
+  if (!(await requireLeagueAdmin(supabase, lid, user.id))) {
+    return { error: "Not allowed." };
+  }
+
+  const { data: session, error: sErr } = await supabase
+    .from("sessions")
+    .select("id, league_id, status, input_mode")
+    .eq("id", sid)
+    .maybeSingle();
+
+  if (sErr || !session || String(session.league_id).toLowerCase() !== lid) {
+    return { error: "Session not found." };
+  }
+  if (session.input_mode !== "champ_court_only") {
+    return { error: "Court 1 win counts apply to Championship court only sessions." };
+  }
+
+  const wasCompleted = session.status === "completed";
+
+  const { data: teamRows, error: tErr } = await supabase
+    .from("session_teams")
+    .select("player_a, player_b")
+    .eq("session_id", sid);
+
+  if (tErr) return { error: tErr.message };
+
+  const allowed = new Set<string>();
+  for (const r of teamRows ?? []) {
+    const [lo, hi] = canonicalPairIds(r.player_a as string, r.player_b as string);
+    allowed.add(`${lo}\0${hi}`);
+  }
+
+  const rosterIds = new Set<string>();
+  const { data: roster } = await supabase
+    .from("league_players")
+    .select("player_id")
+    .eq("league_id", lid);
+  for (const r of roster ?? []) rosterIds.add(r.player_id as string);
+
+  for (const row of rows) {
+    if (row.playerA === row.playerB) return { error: "A team cannot have the same player twice." };
+    if (!rosterIds.has(row.playerA) || !rosterIds.has(row.playerB)) {
+      return { error: "Player not on league roster." };
+    }
+    const [lo, hi] = canonicalPairIds(row.playerA, row.playerB);
+    if (!allowed.has(`${lo}\0${hi}`)) {
+      return { error: "Each row must match a saved team from this session." };
+    }
+    const w = row.wins;
+    if (!Number.isInteger(w) || w < 0 || w > 999) {
+      return { error: "Wins on court 1 must be an integer from 0 to 999." };
+    }
+  }
+
+  const revErr = await reverseSkillRatingIfCompleted(supabase, sid, wasCompleted);
+  if (revErr) return { error: revErr };
+
+  await supabase.from("games").delete().eq("session_id", sid);
+  await supabase.from("session_court1_pair_wins").delete().eq("session_id", sid);
+
+  const toInsert = rows
+    .map((row) => {
+      const [player_low, player_high] = canonicalPairIds(row.playerA, row.playerB);
+      return { session_id: sid, player_low, player_high, wins: row.wins };
+    })
+    .filter((r) => r.wins > 0);
+
+  if (toInsert.length > 0) {
+    const { error: insErr } = await supabase.from("session_court1_pair_wins").insert(toInsert);
+    if (insErr) return { error: insErr.message };
+  }
+
+  const appErr = await applySkillRatingAfterCompletedEdit(supabase, sid, wasCompleted);
+  if (appErr) return { error: appErr };
+
+  revalidatePath(`/leagues/${lid}/sessions/${sid}`);
+  revalidatePath(`/leagues/${lid}`);
+  return { ok: true as const };
+}
 
 export async function replaceSessionGames(
   leagueId: string,
@@ -215,28 +417,35 @@ export async function replaceSessionGames(
   meta: SessionWizardMeta,
 ) {
   const { supabase, user } = await requireOnboarded();
-  if (!(await requireLeagueAdmin(supabase, leagueId, user.id))) {
+  const lid = leagueId.trim().toLowerCase();
+  const sid = sessionId.trim().toLowerCase();
+  if (!(await requireLeagueAdmin(supabase, lid, user.id))) {
     return { error: "Not allowed." };
   }
 
   const { data: session, error: sErr } = await supabase
     .from("sessions")
-    .select("id, league_id, status")
-    .eq("id", sessionId)
+    .select("id, league_id, status, input_mode")
+    .eq("id", sid)
     .maybeSingle();
 
-  if (sErr || !session || session.league_id !== leagueId) {
+  if (sErr || !session || String(session.league_id).toLowerCase() !== lid) {
     return { error: "Session not found." };
   }
-  if (session.status === "completed") {
-    return { error: "Cannot edit games on a completed session." };
+  if (session.input_mode === "champ_court_only") {
+    return {
+      error:
+        "This session uses Championship court only — enter wins on court 1 per team (no game scores).",
+    };
   }
+
+  const wasCompleted = session.status === "completed";
 
   const rosterIds = new Set<string>();
   const { data: roster } = await supabase
     .from("league_players")
     .select("player_id")
-    .eq("league_id", leagueId);
+    .eq("league_id", lid);
   for (const r of roster ?? []) rosterIds.add(r.player_id as string);
 
   const courtsWithAtLeastOneGame = new Set<number>();
@@ -270,40 +479,32 @@ export async function replaceSessionGames(
     courtsWithAtLeastOneGame.add(g.courtNumber);
   }
 
-  const mode = meta.inputMode;
   const numCourts = meta.numCourts;
 
-  if (mode === "champ_court_only") {
-    if (games.length === 0) {
-      return { error: "Add at least one game." };
+  if (games.length === 0) {
+    return { error: "Add at least one game." };
+  }
+  for (const g of games) {
+    if (g.courtNumber > numCourts) {
+      return { error: `Court number must be between 1 and ${numCourts}.` };
     }
-    for (const g of games) {
-      if (g.courtNumber !== 1) {
-        return { error: "Championship mode only records games on court 1." };
-      }
-    }
-  } else {
-    if (games.length === 0) {
-      return { error: "Add at least one game." };
-    }
-    for (const g of games) {
-      if (g.courtNumber > numCourts) {
-        return { error: `Court number must be between 1 and ${numCourts}.` };
-      }
-    }
-    for (let c = 1; c <= numCourts; c++) {
-      if (!courtsWithAtLeastOneGame.has(c)) {
-        return { error: `Add at least one result for court ${c} (you can add extra games on any court).` };
-      }
+  }
+  for (let c = 1; c <= numCourts; c++) {
+    if (!courtsWithAtLeastOneGame.has(c)) {
+      return { error: `Add at least one result for court ${c} (you can add extra games on any court).` };
     }
   }
 
-  await supabase.from("games").delete().eq("session_id", sessionId);
+  const revErr = await reverseSkillRatingIfCompleted(supabase, sid, wasCompleted);
+  if (revErr) return { error: revErr };
+
+  await supabase.from("session_court1_pair_wins").delete().eq("session_id", sid);
+  await supabase.from("games").delete().eq("session_id", sid);
 
   if (games.length > 0) {
     const { error: insErr } = await supabase.from("games").insert(
       games.map((g) => ({
-        session_id: sessionId,
+        session_id: sid,
         court_number: g.courtNumber,
         team_a_players: g.teamAPlayers,
         team_b_players: g.teamBPlayers,
@@ -315,8 +516,11 @@ export async function replaceSessionGames(
     if (insErr) return { error: insErr.message };
   }
 
-  revalidatePath(`/leagues/${leagueId}/sessions/${sessionId}`);
-  revalidatePath(`/leagues/${leagueId}`);
+  const appErr = await applySkillRatingAfterCompletedEdit(supabase, sid, wasCompleted);
+  if (appErr) return { error: appErr };
+
+  revalidatePath(`/leagues/${lid}/sessions/${sid}`);
+  revalidatePath(`/leagues/${lid}`);
   return { ok: true as const };
 }
 
@@ -326,52 +530,65 @@ export async function completeSession(
   meta?: SessionWizardMeta,
 ) {
   const { supabase, user } = await requireOnboarded();
-  if (!(await requireLeagueAdmin(supabase, leagueId, user.id))) {
+  const lid = leagueId.trim().toLowerCase();
+  const sid = sessionId.trim().toLowerCase();
+  if (!(await requireLeagueAdmin(supabase, lid, user.id))) {
     return { error: "Not allowed." };
   }
 
   const { data: session, error: sErr } = await supabase
     .from("sessions")
-    .select("id, league_id, status")
-    .eq("id", sessionId)
+    .select("id, league_id, status, input_mode, num_courts")
+    .eq("id", sid)
     .maybeSingle();
 
-  if (sErr || !session || session.league_id !== leagueId) {
+  if (sErr || !session || String(session.league_id).toLowerCase() !== lid) {
     return { error: "Session not found." };
   }
   if (session.status === "completed") {
     return { error: "Session is already completed." };
   }
 
-  const { data: games, error: gErr } = await supabase
-    .from("games")
-    .select("court_number")
-    .eq("session_id", sessionId);
+  const sessionMode = session.input_mode as InputMode;
+  const numCourts = meta?.numCourts ?? (session.num_courts as number) ?? 1;
 
-  if (gErr) return { error: gErr.message };
+  if (sessionMode === "champ_court_only") {
+    const { data: c1Rows, error: c1Err } = await supabase
+      .from("session_court1_pair_wins")
+      .select("wins")
+      .eq("session_id", sid);
 
-  const courtSet = new Set((games ?? []).map((g) => g.court_number as number));
+    if (c1Err) return { error: c1Err.message };
 
-  if (meta) {
-    if (meta.inputMode === "champ_court_only") {
-      if (!courtSet.has(1)) {
-        return { error: "Add a result for court 1 before completing." };
-      }
-    } else {
-      for (let c = 1; c <= meta.numCourts; c++) {
+    const total = (c1Rows ?? []).reduce((acc, r) => acc + (r.wins as number), 0);
+    if (total <= 0) {
+      return { error: "Enter at least one win on court 1 for a team before completing." };
+    }
+  } else {
+    const { data: games, error: gErr } = await supabase
+      .from("games")
+      .select("court_number")
+      .eq("session_id", sid);
+
+    if (gErr) return { error: gErr.message };
+
+    const courtSet = new Set((games ?? []).map((g) => g.court_number as number));
+
+    if (meta) {
+      for (let c = 1; c <= numCourts; c++) {
         if (!courtSet.has(c)) {
           return { error: `Court ${c} is missing a result.` };
         }
       }
-    }
-  } else {
-    if (courtSet.size === 0) {
-      return { error: "Add at least one game before completing." };
-    }
-    const maxC = Math.max(...courtSet);
-    for (let c = 1; c <= maxC; c++) {
-      if (!courtSet.has(c)) {
-        return { error: `Court ${c} is missing a result.` };
+    } else {
+      if (courtSet.size === 0) {
+        return { error: "Add at least one game before completing." };
+      }
+      const maxC = Math.max(...courtSet);
+      for (let c = 1; c <= maxC; c++) {
+        if (!courtSet.has(c)) {
+          return { error: `Court ${c} is missing a result.` };
+        }
       }
     }
   }
@@ -379,12 +596,12 @@ export async function completeSession(
   const { error: uErr } = await supabase
     .from("sessions")
     .update({ status: "completed" })
-    .eq("id", sessionId)
-    .eq("league_id", leagueId);
+    .eq("id", sid)
+    .eq("league_id", lid);
 
   if (uErr) return { error: uErr.message };
 
-  revalidatePath(`/leagues/${leagueId}/sessions/${sessionId}`);
-  revalidatePath(`/leagues/${leagueId}`);
+  revalidatePath(`/leagues/${lid}/sessions/${sid}`);
+  revalidatePath(`/leagues/${lid}`);
   return { ok: true as const };
 }

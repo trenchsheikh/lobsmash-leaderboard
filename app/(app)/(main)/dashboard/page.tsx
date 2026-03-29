@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Hash, Inbox, PlusCircle } from "lucide-react";
+import { Inbox, Link2, PlusCircle } from "lucide-react";
 import { requireOnboarded } from "@/lib/auth/profile";
 import { buttonVariants } from "@/lib/button-variants";
 import { PageHeader } from "@/components/page-header";
@@ -21,6 +21,26 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { CreateLeagueForm } from "@/components/create-league-form";
 import { JoinLeagueForm } from "@/components/join-league-form";
+import { PasteInviteLinkForm } from "@/components/paste-invite-link-form";
+import { formatDisplayName } from "@/lib/league-format";
+
+type MemberRow = {
+  kind: "member";
+  leagueId: string;
+  name: string;
+  format: string;
+  code: string;
+  role: string;
+};
+
+type PendingRow = {
+  kind: "pending";
+  requestId: string;
+  leagueId: string;
+  name: string;
+  format: string;
+  code: string;
+};
 
 export default async function DashboardPage() {
   const { supabase, user } = await requireOnboarded();
@@ -41,7 +61,7 @@ export default async function DashboardPage() {
     )
     .eq("user_id", user.id);
 
-  const rows =
+  const memberRows: MemberRow[] =
     leagues
       ?.map((row) => {
         const league = row.leagues as unknown as {
@@ -52,15 +72,63 @@ export default async function DashboardPage() {
           created_at: string;
         } | null;
         if (!league) return null;
-        return { ...league, role: row.role as string };
+        return {
+          kind: "member" as const,
+          leagueId: league.id,
+          name: league.name,
+          format: league.format,
+          code: league.code,
+          role: row.role as string,
+        };
       })
-      .filter(Boolean) ?? [];
+      .filter((r): r is MemberRow => r != null) ?? [];
+
+  const { data: pendingJoin } = await supabase
+    .from("league_join_requests")
+    .select(
+      `
+      id,
+      leagues (
+        id,
+        name,
+        format,
+        code
+      )
+    `,
+    )
+    .eq("user_id", user.id)
+    .eq("status", "pending");
+
+  const pendingRows: PendingRow[] =
+    pendingJoin
+      ?.map((row) => {
+        const league = row.leagues as unknown as {
+          id: string;
+          name: string;
+          format: string;
+          code: string;
+        } | null;
+        if (!league?.code) return null;
+        return {
+          kind: "pending" as const,
+          requestId: row.id as string,
+          leagueId: league.id,
+          name: league.name,
+          format: league.format,
+          code: league.code,
+        };
+      })
+      .filter((r): r is PendingRow => r != null) ?? [];
+
+  const tableRows: (MemberRow | PendingRow)[] = [...memberRows, ...pendingRows].sort(
+    (a, b) => a.name.localeCompare(b.name),
+  );
 
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
         title="Dashboard"
-        description="My leagues, join codes, and new seasons."
+        description="Create leagues, request to join with an invite link or code, and track your seasons."
       />
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -70,7 +138,10 @@ export default async function DashboardPage() {
               <PlusCircle className="size-5 text-primary" aria-hidden />
               Create league
             </CardTitle>
-            <CardDescription>Name, format, and an auto-generated join code.</CardDescription>
+            <CardDescription>
+              Name, format, and a reference code. Share the invite link from the league page
+              once it is created.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <CreateLeagueForm />
@@ -79,12 +150,16 @@ export default async function DashboardPage() {
         <Card className="border-border/80 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Hash className="size-5 text-primary" aria-hidden />
-              Join league
+              <Link2 className="size-5 text-primary" aria-hidden />
+              Join a league
             </CardTitle>
-            <CardDescription>Enter the code from your organiser.</CardDescription>
+            <CardDescription>
+              Paste an invite link or enter the 8-character league code. Every join is a request—
+              organisers approve before you are added.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-6">
+            <PasteInviteLinkForm />
             <JoinLeagueForm />
           </CardContent>
         </Card>
@@ -94,15 +169,15 @@ export default async function DashboardPage() {
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
             <CardTitle>My leagues</CardTitle>
-            <CardDescription>Everything you are part of right now.</CardDescription>
+            <CardDescription>Memberships and pending join requests.</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
-          {rows.length === 0 ? (
+          {tableRows.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border/80 bg-muted/20 py-12 text-center">
               <Inbox className="size-10 text-muted-foreground/70" aria-hidden />
               <p className="max-w-sm text-sm text-muted-foreground">
-                No leagues yet. Create one or join with a code above.
+                No leagues yet. Create one or request to join with an invite link or code above.
               </p>
             </div>
           ) : (
@@ -118,24 +193,48 @@ export default async function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((league) => (
-                    <TableRow key={league!.id}>
-                      <TableCell className="font-medium">{league!.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{league!.format}</Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{league!.code}</TableCell>
-                      <TableCell className="capitalize">{league!.role}</TableCell>
-                      <TableCell className="text-right">
-                        <Link
-                          href={`/leagues/${league!.id}`}
-                          className={buttonVariants({ size: "sm", variant: "outline" })}
-                        >
-                          View
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {tableRows.map((row) =>
+                    row.kind === "member" ? (
+                      <TableRow key={`m-${row.leagueId}`}>
+                        <TableCell className="font-medium">{row.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{formatDisplayName(row.format)}</Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{row.code}</TableCell>
+                        <TableCell className="capitalize">{row.role}</TableCell>
+                        <TableCell className="text-right">
+                          <Link
+                            href={`/leagues/${row.leagueId}`}
+                            prefetch={false}
+                            className={buttonVariants({ size: "sm", variant: "outline" })}
+                          >
+                            View
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      <TableRow key={`p-${row.requestId}`}>
+                        <TableCell className="font-medium">{row.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{formatDisplayName(row.format)}</Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{row.code}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-normal">
+                            Requested
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Link
+                            href={`/join/${row.code}`}
+                            className={buttonVariants({ size: "sm", variant: "outline" })}
+                          >
+                            Invite page
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ),
+                  )}
                 </TableBody>
               </Table>
             </div>

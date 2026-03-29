@@ -25,6 +25,7 @@ import {
 } from "@/components/friends-interactive";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { formatDisplayLevel } from "@/lib/rating";
 
 export default async function FriendsPage() {
   const { user } = await requireOnboarded();
@@ -124,8 +125,8 @@ export default async function FriendsPage() {
         <CardHeader>
           <CardTitle className="text-lg">Friends leaderboard</CardTitle>
           <CardDescription>
-            Combined stats across all leagues (wins, then points). Includes you and accepted
-            friends.
+            Sorted by global skill level, then wins and points across all leagues. Includes you and
+            accepted friends.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -142,6 +143,7 @@ export default async function FriendsPage() {
                   <TableRow>
                     <TableHead className="w-12">#</TableHead>
                     <TableHead>Player</TableHead>
+                    <TableHead className="text-right">Skill</TableHead>
                     <TableHead className="text-right">Games</TableHead>
                     <TableHead className="text-right">Wins</TableHead>
                     <TableHead className="text-right">Court 1</TableHead>
@@ -170,6 +172,9 @@ export default async function FriendsPage() {
                             </span>
                           ) : null}
                         </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        Lv {formatDisplayLevel(row.skill)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {row.total_games}

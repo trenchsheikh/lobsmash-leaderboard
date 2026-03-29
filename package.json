@@ -13,6 +13,12 @@
     "db:migrate:avatar-storage": "node scripts/run-migration.cjs supabase/migrations/20260328120000_user_avatar_storage.sql",
     "db:migrate:avatar-search-rpc": "node scripts/run-migration.cjs supabase/migrations/20260328120001_search_users_friendship_avatar_url.sql",
     "db:migrate:session-workflow": "node scripts/run-migration.cjs supabase/migrations/20250329000000_session_workflow.sql",
+    "db:migrate:pair-championship": "node scripts/run-migration.cjs supabase/migrations/20250329110000_pair_championship_stats.sql",
+    "db:migrate:league-invite": "node scripts/run-migration.cjs supabase/migrations/20250329120000_league_invite_join_requests.sql",
+    "db:migrate:league-invite-users-policy": "node scripts/run-migration.cjs supabase/migrations/20250329120100_users_select_join_requests.sql",
+    "db:migrate:join-preview-code": "node scripts/run-migration.cjs supabase/migrations/20250329150000_join_preview_by_league_code.sql",
+    "db:migrate:session-court1-wins": "node scripts/run-migration.cjs supabase/migrations/20250329130000_session_court1_pair_wins.sql",
+    "db:migrate:league-results-mode": "node scripts/run-migration.cjs supabase/migrations/20250329140000_league_results_mode.sql",
     "db:migrate:file": "node scripts/run-migration.cjs"
   },
   "dependencies": {

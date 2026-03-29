@@ -19,8 +19,8 @@ export function JoinLeagueForm() {
       return;
     }
     if ("leagueId" in res && res.leagueId) {
-      toast.success("Joined league");
-      router.push(`/leagues/${res.leagueId}`);
+      toast.success("Join request sent");
+      router.push("/dashboard");
       router.refresh();
     }
   }
@@ -37,7 +37,7 @@ export function JoinLeagueForm() {
           className="font-mono uppercase transition-colors duration-200"
         />
       </div>
-      <Button type="submit">Join league</Button>
+      <Button type="submit">Request to join</Button>
     </form>
   );
 }

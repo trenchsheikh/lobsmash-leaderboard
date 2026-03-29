@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "algorithmic-art": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "7c446629c20a537aba3496490550bbfddf71b3bb71904c9c0056c9daa025a330"
+    },
     "api-security-best-practices": {
       "source": "sickn33/antigravity-awesome-skills",
       "sourceType": "github",

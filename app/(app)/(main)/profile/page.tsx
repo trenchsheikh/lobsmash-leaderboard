@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { ProfileEditSheet } from "@/components/profile-edit-sheet";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
+import { ProfileRatingPanel } from "@/components/profile-rating-panel";
+import { DEFAULT_SKILL } from "@/lib/rating";
 
 export default async function ProfilePage() {
   const { supabase, user } = await requireOnboarded();
@@ -34,12 +36,25 @@ export default async function ProfilePage() {
   const { data: player } = await supabase
     .from("players")
     .select(
-      "playstyle, strengths, weaknesses, preferred_side, experience_level",
+      "id, playstyle, strengths, weaknesses, preferred_side, experience_level",
     )
     .eq("user_id", user.id)
     .single();
 
   if (!row || !player) redirect("/onboarding");
+
+  const { data: ratingRow } = await supabase
+    .from("player_ratings")
+    .select("skill, rated_games, updated_at")
+    .eq("player_id", player.id)
+    .maybeSingle();
+
+  const { data: historyRows } = await supabase
+    .from("player_rating_history")
+    .select("recorded_at, skill, rated_games")
+    .eq("player_id", player.id)
+    .order("recorded_at", { ascending: true })
+    .limit(500);
 
   const clerkUser = await currentUser();
   const email =
@@ -63,6 +78,20 @@ export default async function ProfilePage() {
     strengths,
     weaknesses,
   };
+
+  const effectiveSkill =
+    typeof ratingRow?.skill === "number" && Number.isFinite(ratingRow.skill)
+      ? ratingRow.skill
+      : DEFAULT_SKILL;
+  const ratedGames =
+    typeof ratingRow?.rated_games === "number" && ratingRow.rated_games >= 0
+      ? ratingRow.rated_games
+      : 0;
+  const ratingHistory = (historyRows ?? []).map((h) => ({
+    recorded_at: h.recorded_at as string,
+    skill: h.skill as number,
+    rated_games: h.rated_games as number,
+  }));
 
   return (
     <div className="flex flex-col gap-10">
@@ -95,6 +124,13 @@ export default async function ProfilePage() {
           </Link>
         </div>
       </div>
+
+      <ProfileRatingPanel
+        effectiveSkill={effectiveSkill}
+        ratedGames={ratedGames}
+        history={ratingHistory}
+        updatedAtIso={(ratingRow?.updated_at as string | null) ?? null}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-border/80 lg:col-span-2">

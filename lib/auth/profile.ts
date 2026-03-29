@@ -10,6 +10,13 @@ type PgError = {
   hint?: string | null;
 };
 
+function isSupabaseJwtExpired(error: PgError | null): boolean {
+  if (!error) return false;
+  const code = String(error.code ?? "");
+  const msg = String(error.message ?? "").toLowerCase();
+  return code === "PGRST303" || msg.includes("jwt expired");
+}
+
 function describeSupabaseError(error: PgError | null): string {
   if (!error) return "unknown error";
   const msg = [error.message, error.code, error.details, error.hint]
@@ -27,14 +34,30 @@ async function ensureProfile(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
 ) {
-  const { data } = await supabase
+  const { data, error: selectErr } = await supabase
     .from("users")
     .select("id")
     .eq("id", userId)
     .maybeSingle();
+
+  if (selectErr) {
+    if (isSupabaseJwtExpired(selectErr)) {
+      redirect("/login");
+    }
+    const s = describeSupabaseError(selectErr);
+    console.error(`ensureProfile select failed: ${s}`);
+    throw new Error(
+      `Could not load your profile: ${s}. Check Supabase and Clerk (see supabase/HOSTED_SETUP.md).`,
+    );
+  }
+
   if (data) return;
 
   const { error } = await supabase.from("users").insert({ id: userId });
+
+  if (isSupabaseJwtExpired(error)) {
+    redirect("/login");
+  }
 
   if (error?.code === "23505") {
     const { data: row } = await supabase
@@ -47,8 +70,13 @@ async function ensureProfile(
 
   if (error) {
     const desc = describeSupabaseError(error);
-    console.error("ensureProfile insert failed", desc, error);
+    const code = error.code ?? "";
     const msg = error.message ?? "";
+    if (!isSupabaseJwtExpired(error)) {
+      console.error(
+        `ensureProfile insert failed code=${code} message=${msg} details=${desc}`,
+      );
+    }
     if (
       error.code === "22P02" ||
       msg.includes("invalid input syntax for type uuid")
@@ -63,6 +91,11 @@ async function ensureProfile(
     ) {
       throw new Error(
         "Supabase rejected creating your profile (RLS). Confirm Third-party Auth → Clerk is enabled, session tokens include the role claim (Connect with Supabase), and migrations with private.request_uid() are applied.",
+      );
+    }
+    if (error.code === "23503") {
+      throw new Error(
+        `Could not create your profile (foreign key): ${desc}. Ensure public.users is compatible with Clerk ids (see supabase/HOSTED_SETUP.md).`,
       );
     }
     throw new Error(
