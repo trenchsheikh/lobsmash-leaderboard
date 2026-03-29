@@ -140,6 +140,34 @@
   }
 }
 
+@layer utilities {
+  /** Fractal noise tile for shell backdrop (no external asset). */
+  .main-shell-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+  }
+
+  /** Fine mesh / weave over the gradient. */
+  .main-shell-mesh {
+    background-image:
+      linear-gradient(to right, oklch(0.28 0.04 145 / 5%) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.28 0.04 145 / 5%) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .dark .main-shell-mesh {
+    background-image:
+      linear-gradient(to right, oklch(0.96 0.02 92 / 7%) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.96 0.02 92 / 7%) 1px, transparent 1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-shell-grain {
+    opacity: 0.12 !important;
+  }
+}
+
 /* View Transitions (with experimental.viewTransition); respect reduced motion */
 @supports (view-transition-name: none) {
   ::view-transition-old(root),

@@ -25,28 +25,6 @@ const remotePatterns =
 const nextConfig: NextConfig = {
   reactCompiler: true,
   ...(remotePatterns.length > 0 ? { images: { remotePatterns } } : {}),
-  async headers() {
-    return [
-      {
-        source: "/main-background.png",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
-      },
-      {
-        source: "/mobile-background.png",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
-      },
-    ];
-  },
   experimental: {
     /** Softer refetch when navigating between dynamic routes (seconds). */
     staleTimes: {
