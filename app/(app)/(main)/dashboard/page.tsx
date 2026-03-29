@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { Inbox, Link2, PlusCircle } from "lucide-react";
+import { Inbox, Link2 } from "lucide-react";
 import { requireOnboarded } from "@/lib/auth/profile";
 import { buttonVariants } from "@/lib/button-variants";
 import { PageHeader } from "@/components/page-header";
+import { DashboardCreateLeagueSection } from "@/components/dashboard-create-league-section";
+import { DashboardTournamentCta } from "@/components/dashboard-tournament-cta";
 import {
   Card,
   CardContent,
@@ -19,10 +21,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { CreateLeagueForm } from "@/components/create-league-form";
 import { JoinLeagueForm } from "@/components/join-league-form";
 import { PasteInviteLinkForm } from "@/components/paste-invite-link-form";
 import { formatDisplayName } from "@/lib/league-format";
+
+const glassCard =
+  "border border-white/30 bg-card/80 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-card/75";
 
 type MemberRow = {
   kind: "member";
@@ -128,32 +132,19 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-10">
       <PageHeader
         title="Dashboard"
-        description="Create leagues, request to join with an invite link or code, and track your seasons."
+        description="Run your padel league or club: create a league, join with a code, and follow the season."
+        actions={<DashboardTournamentCta />}
       />
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-border/80 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <PlusCircle className="size-5 text-primary" aria-hidden />
-              Create league
-            </CardTitle>
-            <CardDescription>
-              Name, format, and a reference code. Share the invite link from the league page
-              once it is created.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CreateLeagueForm />
-          </CardContent>
-        </Card>
-        <Card className="border-border/80 shadow-sm">
+      <div className="grid gap-6 md:grid-cols-2 md:items-start">
+        <DashboardCreateLeagueSection />
+        <Card className={glassCard}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Link2 className="size-5 text-primary" aria-hidden />
               Join a league
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-pretty text-foreground/85">
               Paste an invite link or enter the 8-character league code. Every join is a request—
               organisers approve before you are added.
             </CardDescription>
@@ -165,16 +156,18 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <Card className="border-border/80 shadow-sm">
+      <Card className={glassCard}>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
             <CardTitle>My leagues</CardTitle>
-            <CardDescription>Memberships and pending join requests.</CardDescription>
+            <CardDescription className="text-foreground/80">
+              Memberships and pending join requests.
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
           {tableRows.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border/80 bg-muted/20 py-12 text-center">
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border/60 bg-muted/25 py-12 text-center backdrop-blur-sm">
               <Inbox className="size-10 text-muted-foreground/70" aria-hidden />
               <p className="max-w-sm text-sm text-muted-foreground">
                 No leagues yet. Create one or request to join with an invite link or code above.
