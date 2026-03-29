@@ -84,43 +84,80 @@ export async function createSessionDraft(
   return { sessionId };
 }
 
+/** Payload from SessionCreateWizard for first persist (no session row yet). */
+export type SaveNewSessionDraftPayload = {
+  date: string;
+  numCourts: number;
+  teams: { playerA: string; playerB: string }[];
+  /** Full-session mode: game rows; skipped if validation fails (session + teams still saved). */
+  games: GameRowInput[] | null;
+  /** Champ mode: court-1 win counts per pair; skipped if validation fails. */
+  court1Rows: Court1PairWinInput[] | null;
+};
+
 /**
- * Creates a draft only after an explicit user action (not on GET).
- * Avoids ghost drafts from link prefetch or duplicate RSC runs hitting /sessions/new.
+ * First-time save from /sessions/new: creates the draft row, then teams and optional results.
+ * On success redirects to the edit page. Games/champ rows are best-effort after teams (partial save still redirects).
  */
-export async function beginNewSessionDraft(
+export async function saveNewSessionDraft(
   leagueId: string,
+  payload: SaveNewSessionDraftPayload,
 ): Promise<{ error: string } | undefined> {
-  const { supabase, user } = await requireOnboarded();
   const lid = leagueId.trim().toLowerCase();
-  if (!(await requireLeagueAdmin(supabase, lid, user.id))) {
-    return { error: "Not allowed." };
-  }
 
-  const { data: leagueRow } = await supabase
-    .from("leagues")
-    .select("last_court_count")
-    .eq("id", lid)
-    .maybeSingle();
-
-  const lc = leagueRow?.last_court_count as number | null | undefined;
-  const defaultCourts =
-    typeof lc === "number" && lc >= 1 && lc <= 12 ? lc : 4;
-  const today = new Date().toISOString().slice(0, 10);
-
-  const result = await createSessionDraft(
+  const created = await createSessionDraft(
     lid,
-    { date: today, numCourts: defaultCourts },
-    { revalidate: true },
+    {
+      date: payload.date.trim(),
+      numCourts: payload.numCourts,
+    },
+    { revalidate: false },
   );
 
-  if ("error" in result && result.error) {
-    return { error: result.error };
+  if ("error" in created && created.error) {
+    return { error: created.error };
   }
 
-  const sessionId = (result as { sessionId: string }).sessionId;
+  const sessionId = (created as { sessionId: string }).sessionId;
+  const sid = sessionId.trim().toLowerCase();
+
+  const { supabase } = await requireOnboarded();
+  const { data: sessionRow, error: modeErr } = await supabase
+    .from("sessions")
+    .select("input_mode")
+    .eq("id", sid)
+    .maybeSingle();
+
+  if (modeErr || !sessionRow) {
+    return { error: "Could not load new session after create." };
+  }
+
+  const mode = String(sessionRow.input_mode ?? "");
+
+  if (payload.teams.length > 0) {
+    const teamRes = await upsertSessionTeams(lid, sid, payload.teams);
+    if ("error" in teamRes && teamRes.error) {
+      return { error: teamRes.error };
+    }
+  }
+
+  if (mode === "champ_court_only" && payload.court1Rows && payload.court1Rows.length > 0) {
+    const cRes = await replaceSessionCourt1PairWins(lid, sid, payload.court1Rows);
+    if ("error" in cRes && cRes.error) {
+      /* session + teams already persisted; user can fix results on edit */
+    }
+  } else if (mode !== "champ_court_only" && payload.games && payload.games.length > 0) {
+    const gRes = await replaceSessionGames(lid, sid, payload.games, {
+      numCourts: payload.numCourts,
+    });
+    if ("error" in gRes && gRes.error) {
+      /* partial: draft + teams may exist */
+    }
+  }
+
   revalidatePath(`/leagues/${lid}`);
-  redirect(`/leagues/${lid}/sessions/${sessionId}/edit`);
+  revalidatePath(`/leagues/${lid}/sessions/${sid}`);
+  redirect(`/leagues/${lid}/sessions/${sid}/edit`);
 }
 
 export async function updateSessionDraftMeta(

@@ -23,6 +23,10 @@ import { ProfileEditSheet } from "@/components/profile-edit-sheet";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
 import { ProfileRatingPanel } from "@/components/profile-rating-panel";
 import { DEFAULT_SKILL } from "@/lib/rating";
+import { cn } from "@/lib/utils";
+
+const glassIdentity =
+  "rounded-xl border border-white/30 bg-card/80 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-card/75";
 
 export default async function ProfilePage() {
   const { supabase, user } = await requireOnboarded();
@@ -100,20 +104,25 @@ export default async function ProfilePage() {
         description="How you show up in leagues, draws, and on the friend leaderboard."
       />
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+        <div
+          className={cn(
+            glassIdentity,
+            "flex min-w-0 flex-1 flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-5",
+          )}
+        >
           <UserAvatarDisplay
             name={name}
             username={username}
             avatarUrl={avatarUrl}
             size="lg"
-            className="size-20 ring-2 ring-primary/20"
+            className="size-20 shrink-0 ring-2 ring-primary/20"
           />
-          <div>
-            <h2 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
+          <div className="min-w-0">
+            <h2 className="font-heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
               {name || "Your profile"}
             </h2>
             {username ? (
-              <p className="mt-1 font-mono text-lg text-muted-foreground">@{username}</p>
+              <p className="mt-1 font-mono text-lg text-foreground/80">@{username}</p>
             ) : null}
           </div>
         </div>

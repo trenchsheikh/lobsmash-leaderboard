@@ -60,8 +60,8 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-card/85 backdrop-blur-md supports-[backdrop-filter]:bg-card/70">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4">
+    <header className="sticky top-0 z-40 border-0 bg-transparent px-3 pt-3 sm:px-4 sm:pt-4">
+      <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-2 rounded-2xl border border-white/45 bg-white/20 px-3 shadow-[0_8px_32px_-6px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-2xl ring-1 ring-white/35 sm:h-14 sm:gap-4 sm:px-4 dark:border-white/20 dark:bg-white/12 dark:shadow-[0_12px_40px_-8px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.12)] dark:ring-white/15">
         <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-10">
           <Button
             type="button"

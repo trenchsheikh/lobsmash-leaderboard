@@ -7,8 +7,10 @@ import { completeSession } from "@/app/actions/sessions";
 import {
   replaceSessionCourt1PairWins,
   replaceSessionGames,
+  saveNewSessionDraft,
   updateSessionDraftMeta,
   upsertSessionTeams,
+  type Court1PairWinInput,
   type InputMode,
   type GameRowInput,
 } from "@/app/actions/session-wizard";
@@ -85,7 +87,8 @@ export function SessionCreateWizard({
   sessionCompletionStatus = "draft",
 }: {
   leagueId: string;
-  sessionId: string;
+  /** `null` on /sessions/new until Save draft; then navigate to edit with a real id. */
+  sessionId: string | null;
   defaultCourts: number;
   roster: RosterPlayer[];
   leagueResultsMode: InputMode;
@@ -104,6 +107,7 @@ export function SessionCreateWizard({
 }) {
   const router = useRouter();
   const isCompletedSession = sessionCompletionStatus === "completed";
+  const hasPersistedSession = sessionId !== null;
   const [pending, startTransition] = useTransition();
 
   const [date, setDate] = useState(
@@ -239,6 +243,32 @@ export function SessionCreateWizard({
     });
   }
 
+  function applyLocalPostSaveTeamsLayout() {
+    if (inputMode === "full") {
+      setGameRows(
+        Array.from({ length: numCourts }, (_, i) => ({
+          courtNumber: i + 1,
+          teamAIdx: i * 2,
+          teamBIdx: i * 2 + 1,
+          scoreAStr: "6",
+          scoreBStr: "4",
+          winner: "team_a" as const,
+        })),
+      );
+      setChampCourt1WinsStr([]);
+    } else {
+      setGameRows([]);
+      setChampCourt1WinsStr(
+        teams.map(([a, b]) => {
+          const lo = a < b ? a : b;
+          const hi = a < b ? b : a;
+          const row = initialCourt1PairWins.find((x) => x.player_low === lo && x.player_high === hi);
+          return String(row?.wins ?? 0);
+        }),
+      );
+    }
+  }
+
   function onSaveTeams() {
     if (teams.length === 0) {
       toast.error("Create at least one team.");
@@ -251,35 +281,18 @@ export function SessionCreateWizard({
       return;
     }
     const payload = teams.map(([playerA, playerB]) => ({ playerA, playerB }));
+    if (!hasPersistedSession) {
+      applyLocalPostSaveTeamsLayout();
+      toast.success("Teams saved locally — use Save draft to store.");
+      return;
+    }
     startTransition(async () => {
-      const res = await upsertSessionTeams(leagueId, sessionId, payload);
+      const res = await upsertSessionTeams(leagueId, sessionId!, payload);
       if ("error" in res && res.error) {
         toast.error(res.error);
         return;
       }
-      if (inputMode === "full") {
-        setGameRows(
-          Array.from({ length: numCourts }, (_, i) => ({
-            courtNumber: i + 1,
-            teamAIdx: i * 2,
-            teamBIdx: i * 2 + 1,
-            scoreAStr: "6",
-            scoreBStr: "4",
-            winner: "team_a" as const,
-          })),
-        );
-        setChampCourt1WinsStr([]);
-      } else {
-        setGameRows([]);
-        setChampCourt1WinsStr(
-          teams.map(([a, b]) => {
-            const lo = a < b ? a : b;
-            const hi = a < b ? b : a;
-            const row = initialCourt1PairWins.find((x) => x.player_low === lo && x.player_high === hi);
-            return String(row?.wins ?? 0);
-          }),
-        );
-      }
+      applyLocalPostSaveTeamsLayout();
       router.refresh();
     });
   }
@@ -316,6 +329,10 @@ export function SessionCreateWizard({
 
   /** Persists current teams to `session_teams`, then court-1 wins. Server validates pairs against saved teams. */
   async function persistChampCourt1Results(): Promise<{ error?: string }> {
+    if (!sessionId) {
+      return { error: "Save draft first." };
+    }
+    const sid = sessionId;
     if (teams.length < teamsRequired) {
       return { error: "Save teams first (need enough pairs for every court)." };
     }
@@ -328,19 +345,78 @@ export function SessionCreateWizard({
       wins: parseCourt1Wins(champCourt1WinsStr[i] ?? "0"),
     }));
     const teamPayload = teams.map(([playerA, playerB]) => ({ playerA, playerB }));
-    const teamRes = await upsertSessionTeams(leagueId, sessionId, teamPayload);
+    const teamRes = await upsertSessionTeams(leagueId, sid, teamPayload);
     if ("error" in teamRes && teamRes.error) {
       return { error: teamRes.error };
     }
-    const res = await replaceSessionCourt1PairWins(leagueId, sessionId, rows);
+    const res = await replaceSessionCourt1PairWins(leagueId, sid, rows);
     if ("error" in res && res.error) {
       return { error: res.error };
     }
     return {};
   }
 
+  function buildGamesForDraft(): GameRowInput[] | null {
+    if (inputMode === "champ_court_only") return null;
+    const teamList = teams;
+    const games: GameRowInput[] = [];
+    for (let i = 0; i < gameRows.length; i++) {
+      const row = gameRows[i]!;
+      const ta = teamList[row.teamAIdx];
+      const tb = teamList[row.teamBIdx];
+      if (!ta || !tb) continue;
+      if (row.teamAIdx === row.teamBIdx) continue;
+      const teamAScore = parseScoreInt(row.scoreAStr);
+      const teamBScore = parseScoreInt(row.scoreBStr);
+      games.push({
+        courtNumber: row.courtNumber,
+        teamAPlayers: [ta[0], ta[1]],
+        teamBPlayers: [tb[0], tb[1]],
+        teamAScore,
+        teamBScore,
+        winner: row.winner,
+      });
+    }
+    return games.length > 0 ? games : null;
+  }
+
+  function buildCourt1ForDraft(): Court1PairWinInput[] | null {
+    if (inputMode !== "champ_court_only") return null;
+    if (teams.length === 0) return null;
+    return teams.map(([playerA, playerB], i) => ({
+      playerA,
+      playerB,
+      wins: parseCourt1Wins(champCourt1WinsStr[i] ?? "0"),
+    }));
+  }
+
+  function onSaveDraft() {
+    startTransition(async () => {
+      const res = await saveNewSessionDraft(leagueId, {
+        date,
+        numCourts: effectiveCourts,
+        teams: teams.map(([playerA, playerB]) => ({ playerA, playerB })),
+        games: buildGamesForDraft(),
+        court1Rows: buildCourt1ForDraft(),
+      });
+      if (res?.error) toast.error(res.error);
+    });
+  }
+
   function onSaveGames() {
     if (inputMode === "champ_court_only") {
+      if (!hasPersistedSession) {
+        if (teams.length < teamsRequired) {
+          toast.error(`Save teams first (need enough pairs for every court).`);
+          return;
+        }
+        if (champCourt1WinsStr.length !== teams.length) {
+          toast.error("Court 1 wins are out of sync with teams — save teams again.");
+          return;
+        }
+        toast.success("Court 1 results saved locally — use Save draft to store.");
+        return;
+      }
       startTransition(async () => {
         const out = await persistChampCourt1Results();
         if (out.error) {
@@ -380,8 +456,13 @@ export function SessionCreateWizard({
       });
     }
 
+    if (!hasPersistedSession) {
+      toast.success("Results saved locally — use Save draft to store.");
+      return;
+    }
+
     startTransition(async () => {
-      const res = await replaceSessionGames(leagueId, sessionId, games, {
+      const res = await replaceSessionGames(leagueId, sessionId!, games, {
         numCourts: effectiveCourts,
       });
       if ("error" in res && res.error) {
@@ -394,6 +475,10 @@ export function SessionCreateWizard({
   }
 
   function onComplete() {
+    if (!sessionId) {
+      toast.error("Save draft first to create this session.");
+      return;
+    }
     startTransition(async () => {
       if (inputMode === "champ_court_only") {
         const out = await persistChampCourt1Results();
@@ -486,6 +571,17 @@ export function SessionCreateWizard({
           results updates the league standings and global padel levels for everyone in this session.
         </div>
       ) : null}
+      {!hasPersistedSession ? (
+        <div className="flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/5 px-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            Nothing is stored in the database until you save. Use <span className="font-medium text-foreground">Save draft</span>{" "}
+            when you want to keep this session; you can leave or cancel anytime before that with no extra rows created.
+          </p>
+          <Button type="button" disabled={pending} onClick={onSaveDraft} className="w-fit">
+            {pending ? "Saving…" : "Save draft"}
+          </Button>
+        </div>
+      ) : null}
       <section className="flex flex-col gap-4">
         <h2 className="text-sm font-semibold tracking-tight">Session details</h2>
         <div className="space-y-2">
@@ -497,6 +593,7 @@ export function SessionCreateWizard({
             onChange={(e) => {
               const v = e.target.value;
               setDate(v);
+              if (!sessionId) return;
               startTransition(async () => {
                 const res = await updateSessionDraftMeta(leagueId, sessionId, {
                   date: v,
@@ -535,6 +632,7 @@ export function SessionCreateWizard({
             onBlur={() => {
               const next = courtsFromString(courtsInput, defaultCourts);
               setCourtsInput(String(next));
+              if (!sessionId) return;
               startTransition(async () => {
                 const res = await updateSessionDraftMeta(leagueId, sessionId, {
                   date,

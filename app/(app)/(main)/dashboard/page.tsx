@@ -4,7 +4,7 @@ import { requireOnboarded } from "@/lib/auth/profile";
 import { buttonVariants } from "@/lib/button-variants";
 import { PageHeader } from "@/components/page-header";
 import { DashboardCreateLeagueSection } from "@/components/dashboard-create-league-section";
-import { DashboardTournamentCta } from "@/components/dashboard-tournament-cta";
+import { DashboardCreateTournamentSection } from "@/components/dashboard-create-tournament-section";
 import {
   Card,
   CardContent,
@@ -133,11 +133,13 @@ export default async function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Run your padel league or club: create a league, join with a code, and follow the season."
-        actions={<DashboardTournamentCta />}
       />
 
       <div className="grid gap-6 md:grid-cols-2 md:items-start">
-        <DashboardCreateLeagueSection />
+        <div className="flex flex-col gap-6">
+          <DashboardCreateLeagueSection />
+          <DashboardCreateTournamentSection />
+        </div>
         <Card className={glassCard}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
