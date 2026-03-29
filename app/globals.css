@@ -82,6 +82,13 @@
   --sidebar-accent-foreground: oklch(0.3 0.06 145);
   --sidebar-border: oklch(0.88 0.025 92);
   --sidebar-ring: oklch(0.5 0.09 145);
+  /* Matches main shell: from-background via-primary/12 to-primary/28 */
+  --shell-gradient: linear-gradient(
+    to bottom,
+    var(--background) 0%,
+    color-mix(in oklch, var(--primary) 12%, transparent) 45%,
+    color-mix(in oklch, var(--primary) 28%, transparent) 100%
+  );
 }
 
 .dark {
@@ -116,6 +123,13 @@
   --sidebar-accent-foreground: oklch(0.96 0.02 92);
   --sidebar-border: oklch(0.38 0.04 100);
   --sidebar-ring: oklch(0.58 0.1 145);
+  /* Matches main shell dark: via-primary/18 to-primary/35 */
+  --shell-gradient: linear-gradient(
+    to bottom,
+    var(--background) 0%,
+    color-mix(in oklch, var(--primary) 18%, transparent) 45%,
+    color-mix(in oklch, var(--primary) 35%, transparent) 100%
+  );
 }
 
 @layer base {
@@ -123,24 +137,59 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
-    background-image: radial-gradient(
-      ellipse 120% 80% at 50% -20%,
-      oklch(0.94 0.035 135 / 35%),
-      transparent 55%
-    );
-  }
-  @media (prefers-reduced-motion: reduce) {
-    body {
-      background-image: none;
-    }
+    @apply text-foreground;
+    min-height: 100%;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    background-color: transparent;
+    background-image: none;
   }
   html {
     @apply font-sans;
+    min-height: 100%;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    background-color: var(--background);
+    background-image: var(--shell-gradient);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-attachment: scroll;
   }
 }
 
 @layer utilities {
+  /**
+   * Full-bleed fixed shell backdrop on mobile (iOS safe areas).
+   * Legacy constant() then env(); md+ resets to inset 0.
+   */
+  .main-shell-bg-root {
+    position: fixed;
+    z-index: 0;
+    pointer-events: none;
+    top: calc(-1 * constant(safe-area-inset-top, 0px));
+    right: calc(-1 * constant(safe-area-inset-right, 0px));
+    bottom: calc(-1 * constant(safe-area-inset-bottom, 0px));
+    left: calc(-1 * constant(safe-area-inset-left, 0px));
+    min-height: 100dvh;
+    min-height: 100lvh;
+  }
+
+  @supports (padding: env(safe-area-inset-top)) {
+    .main-shell-bg-root {
+      top: calc(-1 * env(safe-area-inset-top, 0px));
+      right: calc(-1 * env(safe-area-inset-right, 0px));
+      bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+      left: calc(-1 * env(safe-area-inset-left, 0px));
+    }
+  }
+
+  @media (min-width: 768px) {
+    .main-shell-bg-root {
+      inset: 0;
+      min-height: unset;
+    }
+  }
+
   /** Fractal noise tile for shell backdrop (no external asset). */
   .main-shell-grain {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");

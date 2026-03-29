@@ -7,6 +7,6 @@ export default async function AppGroupLayout({
 }) {
   await maybeRecordLastSeenIp();
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-background">{children}</div>
+    <div className="flex min-h-full flex-1 flex-col bg-transparent">{children}</div>
   );
 }

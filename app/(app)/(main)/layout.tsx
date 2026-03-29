@@ -11,7 +11,7 @@ export default async function MainShellLayout({
   const { profile } = await requireOnboarded();
 
   return (
-    <div className="relative flex min-h-screen flex-1 flex-col bg-background">
+    <div className="relative flex min-h-screen flex-1 flex-col bg-transparent">
       <MainShellBackground />
       <MainHeader
         user={{
