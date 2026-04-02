@@ -1,6 +1,6 @@
 # LobSmash
 
-**LobSmash** is a league management and leaderboard application for racket-sport groups. Organisers run seasons with shareable join codes; members record sessions and matches; standings update automatically for **Summit** and **Americano** formats—one place for results, roles, and stats.
+**LobSmash** is a league management and leaderboard application for racket-sport groups. Organisers run seasons with shareable join codes; members record sessions and matches; standings update automatically for **Summit** and **Americano** formats—one place for results, roles, and stats.111
 
 ---
 
