@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createGuestPlayer } from "@/app/actions/leagues";
@@ -9,8 +10,16 @@ import { Label } from "@/components/ui/label";
 import { PLAYSTYLE_OPTIONS, PREFERRED_SIDE_OPTIONS, EXPERIENCE_OPTIONS, STRENGTH_OPTIONS, WEAKNESS_OPTIONS } from "@/lib/onboarding-options";
 import { cn } from "@/lib/utils";
 
-export function GuestPlayerForm({ leagueId }: { leagueId: string }) {
+export function GuestPlayerForm({
+  leagueId,
+  onGuestAdded,
+}: {
+  leagueId: string;
+  /** Called after a guest is saved so parent can switch tabs (e.g. People). */
+  onGuestAdded?: () => void;
+}) {
   const router = useRouter();
+  const [formKey, setFormKey] = useState(0);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -21,12 +30,13 @@ export function GuestPlayerForm({ leagueId }: { leagueId: string }) {
       return;
     }
     toast.success("Guest player added");
-    e.currentTarget.reset();
+    setFormKey((k) => k + 1);
+    onGuestAdded?.();
     router.refresh();
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form key={formKey} onSubmit={onSubmit} className="flex flex-col gap-4">
       <div className="space-y-2">
         <Label htmlFor="guest-name">Name</Label>
         <Input id="guest-name" name="name" required placeholder="Guest player" />

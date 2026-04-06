@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Trophy } from "lucide-react";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
+import { WinnerAvatarFrame } from "@/components/winner-avatar-frame";
 import { cn } from "@/lib/utils";
 
 export type SpotlightPlayer = {
@@ -134,19 +134,31 @@ function PlayerPillar({ player }: { player: SpotlightPlayer }) {
       )}
     >
       {isFirst ? (
-        <Trophy className="mb-1 size-5 text-primary" aria-hidden />
+        <span className="mb-1 font-heading text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400/90">
+          1st
+        </span>
       ) : (
         <span className="mb-1 font-heading text-lg font-bold tabular-nums text-muted-foreground">
           {player.rank}
         </span>
       )}
-      <UserAvatarDisplay
-        name={player.name}
-        username={player.username}
-        avatarUrl={player.avatarUrl}
-        size="lg"
-        className={cn(isFirst && "ring-2 ring-primary/25")}
-      />
+      {isFirst ? (
+        <WinnerAvatarFrame>
+          <UserAvatarDisplay
+            name={player.name}
+            username={player.username}
+            avatarUrl={player.avatarUrl}
+            size="lg"
+          />
+        </WinnerAvatarFrame>
+      ) : (
+        <UserAvatarDisplay
+          name={player.name}
+          username={player.username}
+          avatarUrl={player.avatarUrl}
+          size="lg"
+        />
+      )}
       <p className="mt-2 w-full truncate px-0.5 text-sm font-semibold leading-tight">{player.name}</p>
       {player.username ? (
         <p className="truncate text-xs text-muted-foreground">@{player.username}</p>
@@ -183,28 +195,51 @@ function PairPillar({ pair }: { pair: SpotlightPair }) {
       )}
     >
       {isFirst ? (
-        <Trophy className="mb-1 size-5 text-primary" aria-hidden />
+        <span className="mb-1 font-heading text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400/90">
+          1st
+        </span>
       ) : (
         <span className="mb-1 font-heading text-lg font-bold tabular-nums text-muted-foreground">
           {pair.rank}
         </span>
       )}
-      <div className="flex shrink-0 justify-center gap-1">
-        <UserAvatarDisplay
-          name={pair.p1.name}
-          username={pair.p1.username}
-          avatarUrl={pair.p1.avatarUrl}
-          size="default"
-          className="size-11 sm:size-12"
-        />
-        <UserAvatarDisplay
-          name={pair.p2.name}
-          username={pair.p2.username}
-          avatarUrl={pair.p2.avatarUrl}
-          size="default"
-          className="size-11 sm:size-12"
-        />
-      </div>
+      {isFirst ? (
+        <WinnerAvatarFrame variant="pair">
+          <div className="flex shrink-0 justify-center gap-1">
+            <UserAvatarDisplay
+              name={pair.p1.name}
+              username={pair.p1.username}
+              avatarUrl={pair.p1.avatarUrl}
+              size="default"
+              className="size-11 sm:size-12"
+            />
+            <UserAvatarDisplay
+              name={pair.p2.name}
+              username={pair.p2.username}
+              avatarUrl={pair.p2.avatarUrl}
+              size="default"
+              className="size-11 sm:size-12"
+            />
+          </div>
+        </WinnerAvatarFrame>
+      ) : (
+        <div className="flex shrink-0 justify-center gap-1">
+          <UserAvatarDisplay
+            name={pair.p1.name}
+            username={pair.p1.username}
+            avatarUrl={pair.p1.avatarUrl}
+            size="default"
+            className="size-11 sm:size-12"
+          />
+          <UserAvatarDisplay
+            name={pair.p2.name}
+            username={pair.p2.username}
+            avatarUrl={pair.p2.avatarUrl}
+            size="default"
+            className="size-11 sm:size-12"
+          />
+        </div>
+      )}
       <p className="mt-2 line-clamp-2 w-full px-0.5 text-xs font-semibold leading-tight sm:text-sm">
         {pair.label}
       </p>

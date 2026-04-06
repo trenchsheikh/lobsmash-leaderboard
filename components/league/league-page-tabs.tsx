@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/lib/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
+import { WinnerAvatarFrame } from "@/components/winner-avatar-frame";
 import {
   Card,
   CardContent,
@@ -84,6 +85,11 @@ export type LeaguePageTabsProps = {
     isGuest: boolean;
   }>;
   rosterSkillByPlayerId: Record<string, number>;
+  /** Avatars/usernames for pair leaderboard rows (championship mode). */
+  pairPlayerMetaById?: Record<
+    string,
+    { name: string; username: string | null; avatar_url: string | null }
+  >;
   sessions: LeagueSessionRow[];
   sessionsErr: { message: string } | null;
   leaderboard: LeaderboardRow[];
@@ -112,6 +118,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
     memberRows,
     rosterDisplay,
     rosterSkillByPlayerId,
+    pairPlayerMetaById = {},
     sessions,
     sessionsErr,
     leaderboard,
@@ -131,6 +138,26 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
       document.getElementById("full-standings")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   }, []);
+
+  function playerLeaderNameCell(row: LeaderboardRow, idx: number) {
+    const roster = rosterDisplay.find((r) => r.id === row.player_id);
+    const avatarUrl = row.avatar_url ?? roster?.avatar_url ?? null;
+    const username = row.username ?? roster?.username ?? null;
+    const av = (
+      <UserAvatarDisplay
+        name={row.name}
+        username={username}
+        avatarUrl={avatarUrl}
+        size="sm"
+      />
+    );
+    return (
+      <div className="flex min-w-0 items-center gap-2">
+        {idx === 0 ? <WinnerAvatarFrame>{av}</WinnerAvatarFrame> : av}
+        <span className="min-w-0 font-medium">{row.name}</span>
+      </div>
+    );
+  }
 
   const podiumSpotlight =
     leagueResultsMode === "champ_court_only"
@@ -198,10 +225,37 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                             row.sessions_played > 0
                               ? (row.championship_wins / row.sessions_played).toFixed(1)
                               : "—";
+                          const pLow = pairPlayerMetaById[row.player_low];
+                          const pHigh = pairPlayerMetaById[row.player_high];
+                          const avatars = (
+                            <div className="flex shrink-0 gap-0.5">
+                              <UserAvatarDisplay
+                                name={pLow?.name ?? "—"}
+                                username={pLow?.username}
+                                avatarUrl={pLow?.avatar_url}
+                                size="sm"
+                              />
+                              <UserAvatarDisplay
+                                name={pHigh?.name ?? "—"}
+                                username={pHigh?.username}
+                                avatarUrl={pHigh?.avatar_url}
+                                size="sm"
+                              />
+                            </div>
+                          );
                           return (
                             <TableRow key={`${row.player_low}-${row.player_high}`}>
                               <TableCell>{idx + 1}</TableCell>
-                              <TableCell className="font-medium">{row.label}</TableCell>
+                              <TableCell>
+                                <div className="flex min-w-0 items-center gap-2">
+                                  {idx === 0 ? (
+                                    <WinnerAvatarFrame variant="pair">{avatars}</WinnerAvatarFrame>
+                                  ) : (
+                                    avatars
+                                  )}
+                                  <span className="min-w-0 font-medium">{row.label}</span>
+                                </div>
+                              </TableCell>
                               <TableCell className="text-right tabular-nums">{row.sessions_played}</TableCell>
                               <TableCell className="text-right tabular-nums">{row.championship_wins}</TableCell>
                               <TableCell className="text-right tabular-nums">{avgWinsPerSession}</TableCell>
@@ -247,7 +301,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                           return (
                             <TableRow key={row.player_id}>
                               <TableCell>{idx + 1}</TableCell>
-                              <TableCell className="font-medium">{row.name}</TableCell>
+                              <TableCell>{playerLeaderNameCell(row, idx)}</TableCell>
                               <TableCell className="text-right tabular-nums">{row.sessions_played}</TableCell>
                               <TableCell className="text-right tabular-nums">{row.total_wins}</TableCell>
                               <TableCell className="text-right tabular-nums">{avgWinsPerSession}</TableCell>
@@ -320,7 +374,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                           return (
                             <TableRow key={row.player_id}>
                               <TableCell>{idx + 1}</TableCell>
-                              <TableCell className="font-medium">{row.name}</TableCell>
+                              <TableCell>{playerLeaderNameCell(row, idx)}</TableCell>
                               {playerLeaderboardSummitStyle ? (
                                 <>
                                   <TableCell className="text-right tabular-nums">
@@ -623,7 +677,10 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
             </Card>
           ) : null}
 
-          <LeagueAddRosterDropdown leagueId={leagueId} />
+          <LeagueAddRosterDropdown
+            leagueId={leagueId}
+            onNavigateToPeopleTab={() => setTab("people")}
+          />
         </TabsContent>
       ) : null}
     </Tabs>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { teamsCoverCourts } from "@/lib/session-readiness";
 import { cn } from "@/lib/utils";
 
 export type LeagueSessionRow = {
@@ -46,6 +47,19 @@ function statusLabel(status: string): string {
   return status;
 }
 
+function draftSetupHint(row: LeagueSessionRow): string | null {
+  if (row.status !== "draft") return null;
+  const pairCount = teamCountFromRow(row);
+  const courts =
+    typeof row.num_courts === "number" && row.num_courts >= 1 ? row.num_courts : null;
+  if (!courts) return "Set courts in the editor";
+  if (pairCount === 0) return "Add teams to continue";
+  if (!teamsCoverCourts(courts, pairCount)) {
+    return `Teams ${pairCount}/${courts * 2} pairs — add pairs for every court`;
+  }
+  return "Teams saved — add scores when ready";
+}
+
 export function LeagueSessionsList({
   leagueId,
   sessions,
@@ -87,6 +101,7 @@ export function LeagueSessionsList({
 
             const sessionLabel = `Session ${idx + 1}`;
             const dateLabel = formatSessionDate(s.date);
+            const draftHint = draftSetupHint(s);
 
             return (
               <li key={s.id}>
@@ -111,6 +126,9 @@ export function LeagueSessionsList({
                       </Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{metaParts.join(" · ")}</p>
+                    {draftHint ? (
+                      <p className="mt-1 text-xs text-muted-foreground/90">{draftHint}</p>
+                    ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
                     <span className="hidden text-xs font-medium text-muted-foreground sm:inline">

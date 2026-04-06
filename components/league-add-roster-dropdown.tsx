@@ -25,8 +25,29 @@ import { cn } from "@/lib/utils";
 
 type Panel = "member" | "guest";
 
-export function LeagueAddRosterDropdown({ leagueId }: { leagueId: string }) {
+export function LeagueAddRosterDropdown({
+  leagueId,
+  onNavigateToPeopleTab,
+}: {
+  leagueId: string;
+  /** When set, used after a guest is saved: next “Add guest player” opens the People tab. */
+  onNavigateToPeopleTab?: () => void;
+}) {
   const [panel, setPanel] = useState<Panel>("member");
+  /** After a successful guest add, next dropdown click on “Add guest player” goes to People. */
+  const [guestJustAdded, setGuestJustAdded] = useState(false);
+
+  function onGuestAdded() {
+    setGuestJustAdded(true);
+  }
+
+  function onChooseGuestPanel() {
+    if (guestJustAdded && onNavigateToPeopleTab) {
+      onNavigateToPeopleTab();
+      setGuestJustAdded(false);
+    }
+    setPanel("guest");
+  }
 
   return (
     <Card className="border-border/80 shadow-sm">
@@ -89,7 +110,7 @@ export function LeagueAddRosterDropdown({ leagueId }: { leagueId: string }) {
             <p className="mb-4 text-sm text-muted-foreground">
               Guests are not linked to a login; ideal for one-off fill-ins.
             </p>
-            <GuestPlayerForm leagueId={leagueId} />
+            <GuestPlayerForm leagueId={leagueId} onGuestAdded={onGuestAdded} />
           </>
         )}
       </CardContent>

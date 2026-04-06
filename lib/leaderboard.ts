@@ -5,6 +5,9 @@ export type { LeagueFormat };
 export type LeaderboardRow = {
   player_id: string;
   name: string;
+  /** From linked `users` row when present. */
+  username?: string | null;
+  avatar_url?: string | null;
   total_games: number;
   total_wins: number;
   court1_wins: number;

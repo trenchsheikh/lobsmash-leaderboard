@@ -188,17 +188,23 @@ export default async function LeaguePage({ params }: PageProps) {
       court1_wins,
       total_points,
       sessions_played,
-      players ( name )
+      players ( name, users ( username, avatar_url ) )
     `,
     )
     .eq("league_id", leagueId);
 
   const leaderboardRaw: LeaderboardRow[] =
     statsRows?.map((s) => {
-      const p = s.players as unknown as { name: string } | null;
+      const p = s.players as unknown as {
+        name: string;
+        users: { username: string | null; avatar_url: string | null } | null;
+      } | null;
+      const u = p?.users;
       return {
         player_id: s.player_id as string,
         name: p?.name ?? "Player",
+        username: u?.username?.trim() ?? null,
+        avatar_url: u?.avatar_url?.trim() ?? null,
         total_games: s.total_games as number,
         total_wins: s.total_wins as number,
         court1_wins: s.court1_wins as number,
@@ -320,8 +326,8 @@ export default async function LeaguePage({ params }: PageProps) {
           return {
             rank: (i + 1) as 1 | 2 | 3,
             name: r?.name ?? row.name,
-            username: r?.username ?? null,
-            avatarUrl: r?.avatar_url ?? null,
+            username: row.username ?? r?.username ?? null,
+            avatarUrl: row.avatar_url ?? r?.avatar_url ?? null,
             statLeft:
               leagueFormat === "summit"
                 ? { label: "Sessions", value: row.sessions_played }
@@ -437,6 +443,7 @@ export default async function LeaguePage({ params }: PageProps) {
         spotlightPairs={spotlightPairs}
         spotlightPlayers={spotlightPlayers}
         newSessionWizard={newSessionWizard}
+        pairPlayerMetaById={Object.fromEntries(pairPlayerMetaById)}
       />
     </div>
   );

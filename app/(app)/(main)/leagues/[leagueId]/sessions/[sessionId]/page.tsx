@@ -29,6 +29,7 @@ import {
   formatPercent,
   skillForPlayer,
 } from "@/lib/rating";
+import { teamsCoverCourts } from "@/lib/session-readiness";
 
 type PageProps = {
   params: Promise<{ leagueId: string; sessionId: string }>;
@@ -46,7 +47,7 @@ export default async function SessionPage({ params }: PageProps) {
   const raw = await params;
   const leagueId = raw.leagueId.trim().toLowerCase();
   const sessionId = raw.sessionId.trim().toLowerCase();
-  const { supabase, user } = await requireOnboarded();
+  const { supabase, user, player: myPlayer } = await requireOnboarded();
 
   const { data: league } = await supabase
     .from("leagues")
@@ -108,18 +109,28 @@ export default async function SessionPage({ params }: PageProps) {
     playerIds.add(r.player_high);
   }
 
-  const { data: sessionTeamRows } = isChampOnly
-    ? await supabase
-        .from("session_teams")
-        .select("player_a, player_b, sort_order")
-        .eq("session_id", sessionId)
-        .order("sort_order", { ascending: true })
-    : { data: null };
+  const { data: sessionTeamRowsRaw } = await supabase
+    .from("session_teams")
+    .select("player_a, player_b, sort_order")
+    .eq("session_id", sessionId)
+    .order("sort_order", { ascending: true });
 
-  for (const t of sessionTeamRows ?? []) {
+  const sessionTeamRows = sessionTeamRowsRaw ?? [];
+
+  for (const t of sessionTeamRows) {
     playerIds.add(t.player_a as string);
     playerIds.add(t.player_b as string);
   }
+
+  const sessionPlayerIds = new Set(playerIds);
+
+  const myPlayerId = myPlayer?.id as string | undefined;
+  const isParticipant = Boolean(myPlayerId && sessionPlayerIds.has(myPlayerId));
+
+  const numCourts = typeof session.num_courts === "number" && session.num_courts >= 1 ? session.num_courts : 1;
+  const teamPairCount = sessionTeamRows.length;
+  const hasTeams = teamPairCount > 0;
+  const teamsReady = teamsCoverCourts(numCourts, teamPairCount);
 
   const { data: ratingRows } =
     playerIds.size > 0
@@ -167,7 +178,7 @@ export default async function SessionPage({ params }: PageProps) {
       : [];
 
   const champTableRows =
-    isChampOnly && sessionTeamRows && sessionTeamRows.length > 0
+    isChampOnly && sessionTeamRows.length > 0
       ? (() => {
           const pairSkills = sessionTeamRows.map((t) => {
             const pa = t.player_a as string;
@@ -243,18 +254,88 @@ export default async function SessionPage({ params }: PageProps) {
         }
       />
 
+      {isParticipant ? (
+        <div className="rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
+          <p className="font-medium text-foreground">You&apos;re playing this session</p>
+          <p className="mt-1 text-muted-foreground">
+            {canAdmin
+              ? "You can edit teams and scores from Edit session, then mark complete when results are final."
+              : "League admins enter scores and mark the session complete. You can review teams and results here."}
+          </p>
+        </div>
+      ) : null}
+
+      {!isParticipant && !canAdmin ? (
+        <p className="text-sm text-muted-foreground">
+          You&apos;re viewing this session as a league member. Only admins can change teams or scores.
+        </p>
+      ) : null}
+
       {canAdmin && isDraft ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Finalize session</CardTitle>
             <CardDescription>
-              {isChampOnly
-                ? "Save court 1 win counts from the session wizard, then mark complete to update the leaderboard."
-                : "Save games from the session wizard first. When results are correct, mark the session complete to update the leaderboard."}
+              {!hasTeams || !teamsReady ? (
+                <>
+                  Save teams for every court in the session editor first. This session needs{" "}
+                  <span className="font-medium text-foreground">{numCourts * 2}</span> pairs for{" "}
+                  <span className="font-medium text-foreground">{numCourts}</span> court
+                  {numCourts === 1 ? "" : "s"} ({teamPairCount} pair{teamPairCount === 1 ? "" : "s"} saved
+                  {hasTeams ? "" : " — none yet"}).
+                </>
+              ) : isChampOnly ? (
+                <>
+                  Save court 1 win counts from the session wizard, then mark complete to update the leaderboard.
+                </>
+              ) : (
+                <>
+                  Save games from the session wizard first. When results are correct, mark the session complete to
+                  update the leaderboard.
+                </>
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {!hasTeams || !teamsReady ? (
+              <Link
+                href={`/leagues/${leagueId}/sessions/${sessionId}/edit`}
+                prefetch={false}
+                className={buttonVariants({ variant: "default", size: "default" })}
+              >
+                Edit session
+              </Link>
+            ) : (
+              <CompleteSessionButton leagueId={leagueId} sessionId={sessionId} />
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {!isChampOnly && sessionTeamRows.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Teams</CardTitle>
+            <CardDescription>
+              Pairs saved for this session. Add game scores in the session editor when ready.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CompleteSessionButton leagueId={leagueId} sessionId={sessionId} />
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {sessionTeamRows.map((t, i) => {
+                const pa = t.player_a as string;
+                const pb = t.player_b as string;
+                return (
+                  <li
+                    key={`${pa}-${pb}-${i}`}
+                    className="rounded-md border border-border/80 px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium">Pair {i + 1}</span>
+                    <span className="mt-1 block text-muted-foreground">{formatTeam([pa, pb])}</span>
+                  </li>
+                );
+              })}
+            </ul>
           </CardContent>
         </Card>
       ) : null}
