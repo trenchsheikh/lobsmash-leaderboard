@@ -4,8 +4,8 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 /**
- * #1 leaderboard frame: gold laurel wreath asset (`/winner.png`) behind the avatar(s).
- * Use a PNG with transparency for the area outside the wreath; replace the file if a checkerboard appears.
+ * #1 leaderboard frame: gold laurel wreath (`/winner.png`) behind a circular PFP
+ * placed in the wreath’s inner opening via proportional insets.
  */
 export function WinnerAvatarFrame({
   children,
@@ -38,6 +38,16 @@ export function WinnerAvatarFrame({
         ? "108px"
         : "48px";
 
+  /** Pull the PFP toward the wreath’s inner opening (symmetric art: equal horizontal inset). */
+  const avatarSlotClass =
+    variant === "pair"
+      ? frameSize === "spotlight"
+        ? "inset-x-[9%] inset-y-[14%]"
+        : "inset-x-[7%] inset-y-[12%]"
+      : frameSize === "spotlight"
+        ? "inset-[17%]"
+        : "inset-[19%]";
+
   return (
     <span
       className={cn(
@@ -50,12 +60,23 @@ export function WinnerAvatarFrame({
         src="/winner.png"
         alt=""
         fill
-        className="pointer-events-none object-contain p-0.5 select-none"
+        className="pointer-events-none z-0 object-contain object-center p-0.5 select-none"
         sizes={imgSizes}
         aria-hidden
         draggable={false}
       />
-      <span className="relative z-[1] flex items-center justify-center">{children}</span>
+      <span
+        className={cn(
+          "absolute z-[1] flex items-center justify-center",
+          avatarSlotClass,
+        )}
+      >
+        <span className="aspect-square h-full max-h-full w-full min-h-0 min-w-0 overflow-hidden rounded-full bg-background/90 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.45)] ring-1 ring-amber-500/50 dark:bg-background/85 dark:ring-amber-400/40">
+          <span className="flex h-full w-full items-center justify-center [&_[data-slot=avatar]]:size-full [&_[data-slot=avatar]]:max-h-full [&_[data-slot=avatar]]:max-w-full [&_[data-slot=avatar]]:rounded-full">
+            {children}
+          </span>
+        </span>
+      </span>
     </span>
   );
 }

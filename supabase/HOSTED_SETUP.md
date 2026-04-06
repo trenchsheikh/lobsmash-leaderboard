@@ -55,3 +55,11 @@ Only use this if you want a one-off script instead of pasting in the dashboard. 
 **Agents / automation:** If `DATABASE_URL` is present locally, prefer running these commands instead of only pasting into SQL Editor.
 
 Then optionally: `npm run db:migrate:last-seen`
+
+---
+
+## Realtime (optional — league “live draft” updates)
+
+The league page polls draft session data every **12 seconds** and also subscribes to **`public.sessions`** row changes filtered by `league_id` (so creating or updating a session triggers a refresh). No SQL migration is required for that subscription.
+
+For **near-instant** updates when only `games`, `session_teams`, or `session_court1_pair_wins` change, enable **Realtime** replication for those tables in **Supabase Dashboard → Database → Publications** (or the Realtime settings UI for your project version), so Postgres changes broadcast to connected clients. The app does not require it; polling still picks up changes within the poll interval.

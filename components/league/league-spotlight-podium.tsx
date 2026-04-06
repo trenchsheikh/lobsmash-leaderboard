@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 export type SpotlightPlayer = {
   rank: 1 | 2 | 3;
+  playerId: string;
   name: string;
   username: string | null;
   avatarUrl: string | null;
@@ -16,9 +17,21 @@ export type SpotlightPlayer = {
 
 export type SpotlightPair = {
   rank: 1 | 2 | 3;
+  playerLow: string;
+  playerHigh: string;
   label: string;
-  p1: { name: string; username: string | null; avatarUrl: string | null };
-  p2: { name: string; username: string | null; avatarUrl: string | null };
+  p1: {
+    playerId: string;
+    name: string;
+    username: string | null;
+    avatarUrl: string | null;
+  };
+  p2: {
+    playerId: string;
+    name: string;
+    username: string | null;
+    avatarUrl: string | null;
+  };
   statLeft: { label: string; value: string | number };
   statRight: { label: string; value: string | number };
 };
@@ -31,12 +44,14 @@ type Props =
       fullStandingsHref?: string;
       /** Switch to standings tab / scroll (e.g. league tabs). Omit if `fullStandingsHref` is set. */
       onFullTableClick?: () => void;
+      onPlayerClick?: (playerId: string) => void;
     }
   | {
       variant: "pairs";
       pairs: SpotlightPair[];
       fullStandingsHref?: string;
       onFullTableClick?: () => void;
+      onPlayerClick?: (playerId: string) => void;
     };
 
 export function LeagueSpotlightPodium(props: Props) {
@@ -101,7 +116,11 @@ export function LeagueSpotlightPodium(props: Props) {
           )}
         >
           {props.players.map((p) => (
-            <PlayerPillar key={p.rank} player={p} />
+            <PlayerPillar
+              key={p.rank}
+              player={p}
+              onPlayerClick={"onPlayerClick" in props ? props.onPlayerClick : undefined}
+            />
           ))}
         </div>
       ) : (
@@ -114,7 +133,11 @@ export function LeagueSpotlightPodium(props: Props) {
           )}
         >
           {props.pairs.map((pair) => (
-            <PairPillar key={`${pair.rank}-${pair.label}`} pair={pair} />
+            <PairPillar
+              key={`${pair.rank}-${pair.label}`}
+              pair={pair}
+              onPlayerClick={"onPlayerClick" in props ? props.onPlayerClick : undefined}
+            />
           ))}
         </div>
       )}
@@ -122,8 +145,15 @@ export function LeagueSpotlightPodium(props: Props) {
   );
 }
 
-function PlayerPillar({ player }: { player: SpotlightPlayer }) {
+function PlayerPillar({
+  player,
+  onPlayerClick,
+}: {
+  player: SpotlightPlayer;
+  onPlayerClick?: (playerId: string) => void;
+}) {
   const isFirst = player.rank === 1;
+  const interactive = Boolean(onPlayerClick);
   return (
     <div
       className={cn(
@@ -144,22 +174,52 @@ function PlayerPillar({ player }: { player: SpotlightPlayer }) {
       )}
       {isFirst ? (
         <WinnerAvatarFrame frameSize="spotlight">
+          <button
+            type="button"
+            className={cn(
+              "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
+              interactive && "cursor-pointer",
+            )}
+            onClick={() => onPlayerClick?.(player.playerId)}
+            disabled={!interactive}
+          >
+            <UserAvatarDisplay
+              name={player.name}
+              username={player.username}
+              avatarUrl={player.avatarUrl}
+              size="lg"
+            />
+          </button>
+        </WinnerAvatarFrame>
+      ) : (
+        <button
+          type="button"
+          className={cn(
+            "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
+            interactive && "cursor-pointer",
+          )}
+          onClick={() => onPlayerClick?.(player.playerId)}
+          disabled={!interactive}
+        >
           <UserAvatarDisplay
             name={player.name}
             username={player.username}
             avatarUrl={player.avatarUrl}
             size="lg"
           />
-        </WinnerAvatarFrame>
-      ) : (
-        <UserAvatarDisplay
-          name={player.name}
-          username={player.username}
-          avatarUrl={player.avatarUrl}
-          size="lg"
-        />
+        </button>
       )}
-      <p className="mt-2 w-full truncate px-0.5 text-sm font-semibold leading-tight">{player.name}</p>
+      <button
+        type="button"
+        className={cn(
+          "mt-2 w-full truncate px-0.5 text-sm font-semibold leading-tight",
+          interactive && "cursor-pointer hover:underline",
+        )}
+        onClick={() => onPlayerClick?.(player.playerId)}
+        disabled={!interactive}
+      >
+        {player.name}
+      </button>
       {player.username ? (
         <p className="truncate text-xs text-muted-foreground">@{player.username}</p>
       ) : (
@@ -183,8 +243,15 @@ function PlayerPillar({ player }: { player: SpotlightPlayer }) {
   );
 }
 
-function PairPillar({ pair }: { pair: SpotlightPair }) {
+function PairPillar({
+  pair,
+  onPlayerClick,
+}: {
+  pair: SpotlightPair;
+  onPlayerClick?: (playerId: string) => void;
+}) {
   const isFirst = pair.rank === 1;
+  const interactive = Boolean(onPlayerClick);
   return (
     <div
       className={cn(
@@ -206,6 +273,53 @@ function PairPillar({ pair }: { pair: SpotlightPair }) {
       {isFirst ? (
         <WinnerAvatarFrame variant="pair" frameSize="spotlight">
           <div className="flex shrink-0 justify-center gap-1">
+            <button
+              type="button"
+              className={cn(
+                "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
+                interactive && "cursor-pointer",
+              )}
+              onClick={() => onPlayerClick?.(pair.p1.playerId)}
+              disabled={!interactive}
+            >
+              <UserAvatarDisplay
+                name={pair.p1.name}
+                username={pair.p1.username}
+                avatarUrl={pair.p1.avatarUrl}
+                size="default"
+                className="size-11 sm:size-12"
+              />
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
+                interactive && "cursor-pointer",
+              )}
+              onClick={() => onPlayerClick?.(pair.p2.playerId)}
+              disabled={!interactive}
+            >
+              <UserAvatarDisplay
+                name={pair.p2.name}
+                username={pair.p2.username}
+                avatarUrl={pair.p2.avatarUrl}
+                size="default"
+                className="size-11 sm:size-12"
+              />
+            </button>
+          </div>
+        </WinnerAvatarFrame>
+      ) : (
+        <div className="flex shrink-0 justify-center gap-1">
+          <button
+            type="button"
+            className={cn(
+              "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
+              interactive && "cursor-pointer",
+            )}
+            onClick={() => onPlayerClick?.(pair.p1.playerId)}
+            disabled={!interactive}
+          >
             <UserAvatarDisplay
               name={pair.p1.name}
               username={pair.p1.username}
@@ -213,6 +327,16 @@ function PairPillar({ pair }: { pair: SpotlightPair }) {
               size="default"
               className="size-11 sm:size-12"
             />
+          </button>
+          <button
+            type="button"
+            className={cn(
+              "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
+              interactive && "cursor-pointer",
+            )}
+            onClick={() => onPlayerClick?.(pair.p2.playerId)}
+            disabled={!interactive}
+          >
             <UserAvatarDisplay
               name={pair.p2.name}
               username={pair.p2.username}
@@ -220,24 +344,7 @@ function PairPillar({ pair }: { pair: SpotlightPair }) {
               size="default"
               className="size-11 sm:size-12"
             />
-          </div>
-        </WinnerAvatarFrame>
-      ) : (
-        <div className="flex shrink-0 justify-center gap-1">
-          <UserAvatarDisplay
-            name={pair.p1.name}
-            username={pair.p1.username}
-            avatarUrl={pair.p1.avatarUrl}
-            size="default"
-            className="size-11 sm:size-12"
-          />
-          <UserAvatarDisplay
-            name={pair.p2.name}
-            username={pair.p2.username}
-            avatarUrl={pair.p2.avatarUrl}
-            size="default"
-            className="size-11 sm:size-12"
-          />
+          </button>
         </div>
       )}
       <p className="mt-2 line-clamp-2 w-full px-0.5 text-xs font-semibold leading-tight sm:text-sm">

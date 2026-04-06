@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import Link from "next/link";
-import type { SessionInputMode } from "@/lib/league-format";
+import { toast } from "sonner";
+import type { LeagueFormat, SessionInputMode } from "@/lib/league-format";
 import type { LeaderboardRow, PairChampionshipRow } from "@/lib/leaderboard";
 import { DEFAULT_SKILL, formatDisplayLevel } from "@/lib/rating";
+import { useSupabaseBrowser } from "@/lib/supabase/client";
+import { useLeagueDraftLive } from "@/components/league/use-league-draft-live";
+import { PlayerProfileAnalyticsModal } from "@/components/player-profile-analytics-modal";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/lib/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,7 +36,6 @@ import { PendingJoinRequestsList } from "@/components/pending-join-requests-list
 import { UpdateLeagueCodeForm } from "@/components/update-league-code-form";
 import { LeagueSessionsList, type LeagueSessionRow } from "@/components/league-sessions-list";
 import { LeagueSpotlightPodium } from "@/components/league/league-spotlight-podium";
-import type { SpotlightPair, SpotlightPlayer } from "@/components/league/league-spotlight-podium";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +51,7 @@ const tableScroll = "max-h-[min(70vh,44rem)] overflow-auto rounded-md border bor
 
 export type LeaguePageTabsProps = {
   leagueId: string;
+  leagueFormat: LeagueFormat;
   currentUserId: string;
   leagueResultsMode: SessionInputMode;
   playerLeaderboardSummitStyle: boolean;
@@ -76,6 +79,7 @@ export type LeaguePageTabsProps = {
     name: string;
     username: string | null;
     avatar_url: string | null;
+    player_id?: string;
   }>;
   rosterDisplay: Array<{
     id: string;
@@ -94,8 +98,6 @@ export type LeaguePageTabsProps = {
   sessionsErr: { message: string } | null;
   leaderboard: LeaderboardRow[];
   pairLeaderboard: PairChampionshipRow[];
-  spotlightPairs: SpotlightPair[];
-  spotlightPlayers: SpotlightPlayer[];
   /** When set (admins), "Create session" opens the wizard in a dialog on this page. */
   newSessionWizard?: {
     roster: RosterPlayer[];
@@ -106,6 +108,7 @@ export type LeaguePageTabsProps = {
 export function LeaguePageTabs(props: LeaguePageTabsProps) {
   const {
     leagueId,
+    leagueFormat,
     currentUserId,
     leagueResultsMode,
     playerLeaderboardSummitStyle,
@@ -121,16 +124,50 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
     pairPlayerMetaById = {},
     sessions,
     sessionsErr,
-    leaderboard,
-    pairLeaderboard,
-    spotlightPairs,
-    spotlightPlayers,
+    leaderboard: officialLeaderboard,
+    pairLeaderboard: officialPairLeaderboard,
     newSessionWizard,
   } = props;
+
+  const supabase = useSupabaseBrowser();
+  const {
+    leaderboard,
+    pairLeaderboard,
+    spotlightPlayers,
+    spotlightPairs,
+    hasDraftProjection,
+    hasDraftSessions,
+    skillPreviewDelta,
+  } = useLeagueDraftLive({
+    supabase,
+    leagueId,
+    leagueFormat,
+    leagueResultsMode,
+    officialLeaderboard,
+    officialPairLeaderboard,
+    rosterDisplay,
+    pairPlayerMetaById,
+    rosterSkillByPlayerId,
+  });
 
   const [tab, setTab] = useState("overview");
   const [createSessionOpen, setCreateSessionOpen] = useState(false);
   const [wizardMountKey, setWizardMountKey] = useState(0);
+  const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
+
+  const openPlayerProfile = useCallback((playerId: string, isGuest?: boolean) => {
+    if (isGuest) {
+      toast.message("Guest players don’t have a profile to view.");
+      return;
+    }
+    setProfilePlayerId(playerId);
+  }, []);
+
+  function formatSkillDelta(d: number) {
+    if (!Number.isFinite(d) || Math.abs(d) < 0.05) return null;
+    const r = Math.round(d);
+    return r > 0 ? `+${r}` : `${r}`;
+  }
 
   const goStandings = useCallback(() => {
     setTab("standings");
@@ -143,6 +180,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
     const roster = rosterDisplay.find((r) => r.id === row.player_id);
     const avatarUrl = row.avatar_url ?? roster?.avatar_url ?? null;
     const username = row.username ?? roster?.username ?? null;
+    const isGuest = roster?.isGuest ?? false;
     const av = (
       <UserAvatarDisplay
         name={row.name}
@@ -153,8 +191,14 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
     );
     return (
       <div className="flex min-w-0 items-center gap-2">
-        {idx === 0 ? <WinnerAvatarFrame>{av}</WinnerAvatarFrame> : av}
-        <span className="min-w-0 font-medium">{row.name}</span>
+        <button
+          type="button"
+          className="flex min-w-0 items-center gap-2 rounded-md text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => openPlayerProfile(row.player_id, isGuest)}
+        >
+          {idx === 0 ? <WinnerAvatarFrame>{av}</WinnerAvatarFrame> : av}
+          <span className="min-w-0 font-medium">{row.name}</span>
+        </button>
       </div>
     );
   }
@@ -165,11 +209,13 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
           variant: "pairs" as const,
           pairs: spotlightPairs,
           onFullTableClick: goStandings,
+          onPlayerClick: (pid: string) => openPlayerProfile(pid, false),
         } as const)
       : ({
           variant: "players" as const,
           players: spotlightPlayers,
           onFullTableClick: goStandings,
+          onPlayerClick: (pid: string) => openPlayerProfile(pid, false),
         } as const);
 
   return (
@@ -186,6 +232,16 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
       </TabsList>
 
       <TabsContent value="overview" className="space-y-6">
+        {hasDraftSessions ? (
+          <p className="text-xs text-muted-foreground">
+            <Badge variant="outline" className="mr-2 align-middle">
+              Live
+            </Badge>
+            {hasDraftProjection
+              ? "Standings include in-progress draft sessions. Skill preview updates as results are entered; official ratings apply when a session is completed."
+              : "Draft session(s) in progress — add scores to see standings and skill preview update."}
+          </p>
+        ) : null}
         <LeagueSpotlightPodium {...podiumSpotlight} />
       </TabsContent>
 
@@ -200,6 +256,11 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   <span className="font-medium text-foreground">fixed pair</span> (same two players) has done
                   together — court 1 wins from completed sessions. Sessions counts completed champ sessions
                   where that pair had a team row. Different partners in different weeks are separate rows.
+                  {hasDraftSessions ? (
+                    <span className="mt-2 block text-amber-800/95 dark:text-amber-400/90">
+                      Includes in-progress draft sessions until they are completed.
+                    </span>
+                  ) : null}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -227,20 +288,34 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                               : "—";
                           const pLow = pairPlayerMetaById[row.player_low];
                           const pHigh = pairPlayerMetaById[row.player_high];
+                          const gLow = rosterDisplay.find((r) => r.id === row.player_low)?.isGuest;
+                          const gHigh = rosterDisplay.find((r) => r.id === row.player_high)?.isGuest;
                           const avatars = (
                             <div className="flex shrink-0 gap-0.5">
-                              <UserAvatarDisplay
-                                name={pLow?.name ?? "—"}
-                                username={pLow?.username}
-                                avatarUrl={pLow?.avatar_url}
-                                size="sm"
-                              />
-                              <UserAvatarDisplay
-                                name={pHigh?.name ?? "—"}
-                                username={pHigh?.username}
-                                avatarUrl={pHigh?.avatar_url}
-                                size="sm"
-                              />
+                              <button
+                                type="button"
+                                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                onClick={() => openPlayerProfile(row.player_low, Boolean(gLow))}
+                              >
+                                <UserAvatarDisplay
+                                  name={pLow?.name ?? "—"}
+                                  username={pLow?.username}
+                                  avatarUrl={pLow?.avatar_url}
+                                  size="sm"
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                onClick={() => openPlayerProfile(row.player_high, Boolean(gHigh))}
+                              >
+                                <UserAvatarDisplay
+                                  name={pHigh?.name ?? "—"}
+                                  username={pHigh?.username}
+                                  avatarUrl={pHigh?.avatar_url}
+                                  size="sm"
+                                />
+                              </button>
                             </div>
                           );
                           return (
@@ -275,6 +350,11 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                 <CardDescription>
                   Secondary view: individual totals across completed sessions (partners can change week to week).
                   Sorted by total wins, then sessions played, then name.
+                  {hasDraftSessions ? (
+                    <span className="mt-2 block text-amber-800/95 dark:text-amber-400/90">
+                      Includes in-progress draft sessions until they are completed.
+                    </span>
+                  ) : null}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -332,6 +412,11 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                       total points, then wins, games, court 1 wins.
                     </>
                   )}
+                  {hasDraftSessions ? (
+                    <span className="mt-2 block text-amber-800/95 dark:text-amber-400/90">
+                      Includes in-progress draft sessions until they are completed.
+                    </span>
+                  ) : null}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -476,20 +561,25 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   {memberRows.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell>
-                        <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          className="flex w-full min-w-0 items-center gap-3 rounded-md text-left outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-100"
+                          disabled={!m.player_id}
+                          onClick={() => m.player_id && openPlayerProfile(m.player_id, false)}
+                        >
                           <UserAvatarDisplay
                             name={m.name}
                             username={m.username}
                             avatarUrl={m.avatar_url}
                             size="sm"
                           />
-                          <div>
+                          <div className="min-w-0">
                             <div className="font-mono font-medium">
                               {m.username ? `@${m.username}` : "—"}
                             </div>
                             <div className="text-xs text-muted-foreground">{m.name}</div>
                           </div>
-                        </div>
+                        </button>
                       </TableCell>
                       <TableCell className="text-right">
                         {isOwner && m.user_id !== currentUserId ? (
@@ -523,43 +613,62 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
               <p className="text-sm text-muted-foreground">No players linked yet.</p>
             ) : (
               <ul className="grid max-h-[min(60vh,36rem)] gap-2 overflow-y-auto sm:grid-cols-2">
-                {rosterDisplay.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex items-center gap-3 rounded-md border border-border/80 px-3 py-2 text-sm"
-                  >
-                    {!p.isGuest ? (
-                      <UserAvatarDisplay
-                        name={p.name}
-                        username={p.username}
-                        avatarUrl={p.avatar_url}
-                        size="sm"
-                      />
-                    ) : (
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                        G
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <span className="font-medium">{p.name}</span>
-                      {!p.isGuest && p.username ? (
-                        <span className="ml-2 font-mono text-xs text-muted-foreground">
-                          @{p.username}
-                        </span>
-                      ) : null}
-                      {p.isGuest ? (
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          Guest
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <span className="shrink-0 tabular-nums text-xs text-muted-foreground" title="Global skill level">
-                      {p.isGuest
-                        ? "—"
-                        : `Lv ${formatDisplayLevel(rosterSkillByPlayerId[p.id] ?? DEFAULT_SKILL)}`}
-                    </span>
-                  </li>
-                ))}
+                {rosterDisplay.map((p) => {
+                  const preview = formatSkillDelta(skillPreviewDelta.get(p.id) ?? 0);
+                  return (
+                    <li
+                      key={p.id}
+                      className="flex items-center gap-3 rounded-md border border-border/80 px-3 py-2 text-sm"
+                    >
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => openPlayerProfile(p.id, p.isGuest)}
+                      >
+                        {!p.isGuest ? (
+                          <UserAvatarDisplay
+                            name={p.name}
+                            username={p.username}
+                            avatarUrl={p.avatar_url}
+                            size="sm"
+                          />
+                        ) : (
+                          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                            G
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium">{p.name}</span>
+                          {!p.isGuest && p.username ? (
+                            <span className="ml-2 font-mono text-xs text-muted-foreground">
+                              @{p.username}
+                            </span>
+                          ) : null}
+                          {p.isGuest ? (
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              Guest
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </button>
+                      <span
+                        className="shrink-0 text-right text-xs text-muted-foreground tabular-nums"
+                        title="Global skill level; amber Δ is a preview from open drafts"
+                      >
+                        {p.isGuest ? (
+                          "—"
+                        ) : (
+                          <>
+                            Lv {formatDisplayLevel(rosterSkillByPlayerId[p.id] ?? DEFAULT_SKILL)}
+                            {preview ? (
+                              <span className="ml-1 text-amber-800 dark:text-amber-400">Δ{preview}</span>
+                            ) : null}
+                          </>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>
@@ -683,6 +792,18 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
           />
         </TabsContent>
       ) : null}
+
+      <PlayerProfileAnalyticsModal
+        open={profilePlayerId !== null}
+        onOpenChange={(o) => {
+          if (!o) setProfilePlayerId(null);
+        }}
+        playerId={profilePlayerId}
+        leagueId={leagueId}
+        leagueFormat={leagueFormat}
+        leagueResultsMode={leagueResultsMode}
+        currentUserId={currentUserId}
+      />
     </Tabs>
   );
 }

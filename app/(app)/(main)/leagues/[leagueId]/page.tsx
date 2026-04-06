@@ -19,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { DeleteLeagueButton } from "@/components/delete-league-button";
 import { LeaguePageTabs } from "@/components/league/league-page-tabs";
-import type { SpotlightPair, SpotlightPlayer } from "@/components/league/league-spotlight-podium";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +82,11 @@ export default async function LeaguePage({ params }: PageProps) {
   const playerByUserId = new Map(
     (memberPlayers ?? []).map((p) => [p.user_id as string, p]),
   );
+
+  const memberRowsEnriched = memberRows.map((m) => ({
+    ...m,
+    player_id: (playerByUserId.get(m.user_id) as { id: string } | undefined)?.id,
+  }));
 
   const { data: rosterRows } = await supabase
     .from("league_players")
@@ -293,53 +297,6 @@ export default async function LeaguePage({ params }: PageProps) {
     }
   }
 
-  const spotlightPairs: SpotlightPair[] =
-    leagueResultsMode === "champ_court_only"
-      ? pairLeaderboard.slice(0, 3).map((row, i) => ({
-          rank: (i + 1) as 1 | 2 | 3,
-          label: row.label,
-          p1: {
-            name: pairPlayerMetaById.get(row.player_low)?.name ?? "Player",
-            username: pairPlayerMetaById.get(row.player_low)?.username ?? null,
-            avatarUrl:
-              pairPlayerMetaById.get(row.player_low)?.avatar_url ??
-              rosterByPlayerId.get(row.player_low)?.avatar_url ??
-              null,
-          },
-          p2: {
-            name: pairPlayerMetaById.get(row.player_high)?.name ?? "Player",
-            username: pairPlayerMetaById.get(row.player_high)?.username ?? null,
-            avatarUrl:
-              pairPlayerMetaById.get(row.player_high)?.avatar_url ??
-              rosterByPlayerId.get(row.player_high)?.avatar_url ??
-              null,
-          },
-          statLeft: { label: "Champ wins", value: row.championship_wins },
-          statRight: { label: "Sessions", value: row.sessions_played },
-        }))
-      : [];
-
-  const spotlightPlayers: SpotlightPlayer[] =
-    leagueResultsMode !== "champ_court_only"
-      ? leaderboard.slice(0, 3).map((row, i) => {
-          const r = rosterByPlayerId.get(row.player_id);
-          return {
-            rank: (i + 1) as 1 | 2 | 3,
-            name: r?.name ?? row.name,
-            username: row.username ?? r?.username ?? null,
-            avatarUrl: row.avatar_url ?? r?.avatar_url ?? null,
-            statLeft:
-              leagueFormat === "summit"
-                ? { label: "Sessions", value: row.sessions_played }
-                : { label: "Points", value: row.total_points },
-            statRight:
-              leagueFormat === "summit"
-                ? { label: "Wins", value: row.total_wins }
-                : { label: "Games", value: row.total_games },
-          };
-        })
-      : [];
-
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
   const proto = h.get("x-forwarded-proto") ?? "https";
@@ -418,6 +375,7 @@ export default async function LeaguePage({ params }: PageProps) {
 
       <LeaguePageTabs
         leagueId={leagueId}
+        leagueFormat={leagueFormat}
         currentUserId={user.id}
         leagueResultsMode={leagueResultsMode}
         playerLeaderboardSummitStyle={playerLeaderboardSummitStyle}
@@ -433,15 +391,13 @@ export default async function LeaguePage({ params }: PageProps) {
           username: m.username,
           avatar_url: m.avatar_url,
         }))}
-        memberRows={memberRows}
+        memberRows={memberRowsEnriched}
         rosterDisplay={rosterDisplay}
         rosterSkillByPlayerId={rosterSkillRecord}
         sessions={sessions}
         sessionsErr={sessionsErr ? { message: sessionsErr.message } : null}
         leaderboard={leaderboard}
         pairLeaderboard={pairLeaderboard}
-        spotlightPairs={spotlightPairs}
-        spotlightPlayers={spotlightPlayers}
         newSessionWizard={newSessionWizard}
         pairPlayerMetaById={Object.fromEntries(pairPlayerMetaById)}
       />
