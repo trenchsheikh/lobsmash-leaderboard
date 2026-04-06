@@ -143,7 +143,7 @@ function PlayerPillar({ player }: { player: SpotlightPlayer }) {
         </span>
       )}
       {isFirst ? (
-        <WinnerAvatarFrame>
+        <WinnerAvatarFrame frameSize="spotlight">
           <UserAvatarDisplay
             name={player.name}
             username={player.username}
@@ -204,7 +204,7 @@ function PairPillar({ pair }: { pair: SpotlightPair }) {
         </span>
       )}
       {isFirst ? (
-        <WinnerAvatarFrame variant="pair">
+        <WinnerAvatarFrame variant="pair" frameSize="spotlight">
           <div className="flex shrink-0 justify-center gap-1">
             <UserAvatarDisplay
               name={pair.p1.name}
