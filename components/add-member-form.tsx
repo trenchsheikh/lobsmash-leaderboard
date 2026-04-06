@@ -1,22 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Heart,
-  Loader2,
-  Search,
-  Sparkles,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { Heart, Loader2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import {
   addMemberByUserId,
   addMemberByUsername,
   getFriendsForLeagueInvite,
-  getSuggestedLeagueMates,
-  searchUsersForLeague,
   type LeagueMemberPick,
 } from "@/app/actions/leagues";
 import { Button } from "@/components/ui/button";
@@ -79,20 +70,9 @@ function UserRow({
 export function AddMemberForm({ leagueId }: { leagueId: string }) {
   const router = useRouter();
   const [role, setRole] = useState<"admin" | "player">("player");
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<LeagueMemberPick[]>([]);
-  const [suggestions, setSuggestions] = useState<LeagueMemberPick[]>([]);
   const [friends, setFriends] = useState<LeagueMemberPick[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(true);
   const [addingId, setAddingId] = useState<string | null>(null);
-  const [searchPending, startSearch] = useTransition();
-  const [suggestLoading, setSuggestLoading] = useState(true);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 320);
-    return () => window.clearTimeout(t);
-  }, [search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,49 +92,8 @@ export function AddMemberForm({ leagueId }: { leagueId: string }) {
     };
   }, [leagueId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setSuggestLoading(true);
-    getSuggestedLeagueMates(leagueId).then((res) => {
-      if (cancelled) return;
-      if ("error" in res && res.error) {
-        toast.error(res.error);
-        setSuggestions([]);
-      } else {
-        setSuggestions(res.users);
-      }
-      setSuggestLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [leagueId]);
-
-  useEffect(() => {
-    if (debouncedSearch.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    startSearch(async () => {
-      const res = await searchUsersForLeague(leagueId, debouncedSearch);
-      if ("error" in res && res.error) {
-        toast.error(res.error);
-        setSearchResults([]);
-        return;
-      }
-      setSearchResults(res.users);
-    });
-  }, [leagueId, debouncedSearch]);
-
   const refresh = useCallback(() => {
     router.refresh();
-    setSearch("");
-    setDebouncedSearch("");
-    setSearchResults([]);
-    getSuggestedLeagueMates(leagueId).then((res) => {
-      if ("error" in res && res.error) return;
-      setSuggestions(res.users);
-    });
     getFriendsForLeagueInvite(leagueId).then((res) => {
       if ("error" in res && res.error) return;
       setFriends(res.users);
@@ -241,7 +180,7 @@ export function AddMemberForm({ leagueId }: { leagueId: string }) {
           </div>
         ) : friends.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            No friends to add here yet—connect on the Friends page, or search below.
+            No friends to add here yet—connect on the Friends page.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -251,84 +190,6 @@ export function AddMemberForm({ leagueId }: { leagueId: string }) {
                   u={u}
                   pending={addingId === u.id}
                   staggerMs={Math.min(i, 8) * 35}
-                  onAdd={() => quickAdd(u)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="space-y-3 border-t border-border/60 pt-6">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Search className="size-4 text-muted-foreground" aria-hidden />
-          Search players
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Find people you’ve played with in other leagues (visible to you). Type at least 2 characters.
-        </p>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by @username…"
-            className="pl-9 font-mono text-sm"
-            autoComplete="off"
-            aria-label="Search players by username"
-          />
-        </div>
-        {searchPending && debouncedSearch.length >= 2 ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
-            Searching…
-          </div>
-        ) : null}
-        {debouncedSearch.length >= 2 && !searchPending && searchResults.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No matches. Try another handle.</p>
-        ) : null}
-        {searchResults.length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {searchResults.map((u, i) => (
-              <li key={u.id}>
-                <UserRow
-                  u={u}
-                  pending={addingId === u.id}
-                  staggerMs={Math.min(i, 8) * 40}
-                  onAdd={() => quickAdd(u)}
-                />
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-
-      <div className="space-y-3 border-t border-border/60 pt-6">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Users className="size-4 text-muted-foreground" aria-hidden />
-          Friends from your other leagues
-          <Sparkles className="size-3.5 text-amber-600/80 dark:text-amber-400/90" aria-hidden />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          People you already share a league with elsewhere—add them here in one tap.
-        </p>
-        {suggestLoading ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
-            Loading suggestions…
-          </div>
-        ) : suggestions.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No suggestions yet. Join another league with friends to see them here.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {suggestions.map((u, i) => (
-              <li key={u.id}>
-                <UserRow
-                  u={u}
-                  pending={addingId === u.id}
-                  staggerMs={Math.min(i, 8) * 45}
                   onAdd={() => quickAdd(u)}
                 />
               </li>

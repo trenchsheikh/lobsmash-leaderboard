@@ -40,7 +40,7 @@ export default async function FriendsPage() {
   const accepted = friendships.filter((f) => f.status === "accepted");
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-7">
       <PageHeader
         title="Friends"
         description="Send requests, accept invites, and compare stats with people you play with."
@@ -137,7 +137,7 @@ export default async function FriendsPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border/60">
+            <div className="max-h-[min(70vh,44rem)] overflow-auto rounded-lg border border-border/60">
               <Table>
                 <TableHeader>
                   <TableRow>

@@ -26,7 +26,7 @@ import { DEFAULT_SKILL } from "@/lib/rating";
 import { cn } from "@/lib/utils";
 
 const glassIdentity =
-  "rounded-xl border border-white/30 bg-card/80 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-card/75";
+  "rounded-xl border border-border bg-card shadow-md backdrop-blur-sm dark:border-white/10 dark:bg-card/90";
 
 export default async function ProfilePage() {
   const { supabase, user } = await requireOnboarded();
@@ -98,7 +98,7 @@ export default async function ProfilePage() {
   }));
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-7">
       <PageHeader
         title="Profile"
         description="How you show up in leagues, draws, and on the friend leaderboard."

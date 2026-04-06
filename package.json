@@ -19,7 +19,11 @@
     "db:migrate:join-preview-code": "node scripts/run-migration.cjs supabase/migrations/20250329150000_join_preview_by_league_code.sql",
     "db:migrate:session-court1-wins": "node scripts/run-migration.cjs supabase/migrations/20250329130000_session_court1_pair_wins.sql",
     "db:migrate:league-results-mode": "node scripts/run-migration.cjs supabase/migrations/20250329140000_league_results_mode.sql",
-    "db:migrate:file": "node scripts/run-migration.cjs"
+    "db:migrate:file": "node scripts/run-migration.cjs",
+    "db:migrate:skill-ratings": "node scripts/run-migration.cjs supabase/migrations/20260330100000_player_skill_ratings.sql && node scripts/run-migration.cjs supabase/migrations/20260401120000_reverse_skill_rating_for_session.sql && node scripts/run-migration.cjs supabase/migrations/20260401120100_grant_apply_skill_rating_rpc.sql",
+    "db:verify:skill-rating": "node scripts/verify-skill-rating-db.cjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",
@@ -32,6 +36,7 @@
     "@radix-ui/react-radio-group": "^1.3.7",
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@supabase/supabase-js": "^2.49.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -59,6 +64,7 @@
     "eslint-config-next": "16.2.1",
     "pg": "^8.14.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }

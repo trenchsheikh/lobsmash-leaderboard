@@ -43,7 +43,23 @@ export default function RootLayout({
       className={`${fontSans.variable} ${fontHeading.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <ClerkProvider>{children}</ClerkProvider>
+        <ClerkProvider
+          appearance={{
+            variables: {
+              colorPrimary: "#99e600",
+              colorBackground: "#ffffff",
+              colorText: "#002d62",
+              colorTextSecondary: "#3d5670",
+              colorInputBackground: "#f0f4f8",
+              colorInputText: "#002d62",
+            },
+            elements: {
+              card: "shadow-xl border border-border/60",
+            },
+          }}
+        >
+          {children}
+        </ClerkProvider>
         <Toaster richColors position="top-center" />
       </body>
     </html>

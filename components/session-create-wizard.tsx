@@ -399,7 +399,13 @@ export function SessionCreateWizard({
         games: buildGamesForDraft(),
         court1Rows: buildCourt1ForDraft(),
       });
-      if (res?.error) toast.error(res.error);
+      if ("error" in res && res.error) {
+        toast.error(res.error);
+        return;
+      }
+      if ("sessionId" in res && res.sessionId) {
+        router.push(`/leagues/${leagueId}/sessions/${res.sessionId}/edit`);
+      }
     });
   }
 

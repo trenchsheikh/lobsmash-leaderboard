@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useClerk } from "@clerk/nextjs";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown, LogOut, Menu } from "lucide-react";
@@ -43,7 +44,7 @@ function navLinkClass(active: boolean) {
     "motion-safe:active:scale-[0.98] motion-reduce:active:scale-100",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
     active
-      ? "bg-primary/12 text-primary"
+      ? "bg-primary/12 text-brand-navy dark:text-sky-300"
       : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
   );
 }
@@ -61,7 +62,7 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
 
   return (
     <header className="sticky top-0 z-40 border-0 bg-transparent px-3 pt-3 sm:px-4 sm:pt-4">
-      <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-2 rounded-2xl border border-white/45 bg-white/20 px-3 shadow-[0_8px_32px_-6px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-2xl ring-1 ring-white/35 sm:h-14 sm:gap-4 sm:px-4 dark:border-white/20 dark:bg-white/12 dark:shadow-[0_12px_40px_-8px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.12)] dark:ring-white/15">
+      <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-2 rounded-2xl border border-border bg-card/95 px-3 shadow-md backdrop-blur-xl ring-1 ring-black/[0.04] sm:h-14 sm:gap-4 sm:px-4 dark:border-white/12 dark:bg-white/10 dark:ring-white/10">
         <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-10">
           <Button
             type="button"
@@ -79,13 +80,20 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
             href="/dashboard"
             transitionTypes={["nav"]}
             className={cn(
-              "font-heading min-w-0 shrink text-lg font-semibold tracking-tight text-foreground",
-              "rounded-md transition-[color,transform] duration-200 ease-out hover:text-primary",
+              "inline-flex min-w-0 shrink-0 items-center rounded-md",
+              "transition-[opacity,transform] duration-200 ease-out hover:opacity-90",
               "motion-safe:active:scale-[0.98] motion-reduce:active:scale-100",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             )}
           >
-            LobSmash
+            <Image
+              src="/lobsmash-logo-removebg-preview.png"
+              alt="LobSmash"
+              width={160}
+              height={160}
+              className="h-8 w-auto sm:h-9"
+              priority
+            />
           </Link>
           <nav
             className="hidden items-center gap-1 md:flex md:gap-2"
@@ -107,7 +115,7 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
                     "motion-safe:active:scale-[0.98] motion-reduce:active:scale-100",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     active
-                      ? "bg-primary/12 text-primary"
+                      ? "bg-primary/12 text-brand-navy dark:text-sky-300"
                       : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
                   )}
                 >

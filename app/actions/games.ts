@@ -51,20 +51,27 @@ export async function createGame(leagueId: string, sessionId: string, formData: 
     if (teamBSet.has(id)) return { error: "A player cannot be on both teams." };
   }
 
+  const lid = leagueId.trim().toLowerCase();
+  const sid = sessionId.trim().toLowerCase();
+
   const { data: session, error: sErr } = await supabase
     .from("sessions")
-    .select("id, league_id")
-    .eq("id", sessionId)
+    .select("id, league_id, status")
+    .eq("id", sid)
     .single();
 
-  if (sErr || !session || session.league_id !== leagueId) {
+  if (sErr || !session || String(session.league_id).toLowerCase() !== lid) {
     return { error: "Session does not belong to this league." };
   }
+
+  const wasCompleted = session.status === "completed";
+  const revErr = await reverseSkillRatingIfCompleted(supabase, sid, wasCompleted);
+  if (revErr) return { error: revErr };
 
   const { data: existingGames, error: gErr } = await supabase
     .from("games")
     .select("court_number, team_a_players, team_b_players")
-    .eq("session_id", sessionId);
+    .eq("session_id", sid);
 
   if (gErr) return { error: gErr.message };
 
@@ -84,7 +91,7 @@ export async function createGame(leagueId: string, sessionId: string, formData: 
   const { data: lpRows, error: lpErr } = await supabase
     .from("league_players")
     .select("player_id")
-    .eq("league_id", leagueId);
+    .eq("league_id", lid);
 
   if (lpErr) return { error: lpErr.message };
   for (const row of lpRows ?? []) leaguePlayerIds.add(row.player_id as string);
@@ -96,7 +103,7 @@ export async function createGame(leagueId: string, sessionId: string, formData: 
   }
 
   const { error } = await supabase.from("games").insert({
-    session_id: sessionId,
+    session_id: sid,
     court_number: courtNumber,
     team_a_players: teamA,
     team_b_players: teamB,
@@ -110,8 +117,11 @@ export async function createGame(leagueId: string, sessionId: string, formData: 
     return { error: error.message };
   }
 
-  revalidatePath(`/leagues/${leagueId}/sessions/${sessionId}`);
-  revalidatePath(`/leagues/${leagueId}`);
+  const appErr = await applySkillRatingAfterCompletedEdit(supabase, sid, wasCompleted);
+  if (appErr) return { error: appErr };
+
+  revalidatePath(`/leagues/${lid}/sessions/${sid}`);
+  revalidatePath(`/leagues/${lid}`);
   return { ok: true };
 }
 

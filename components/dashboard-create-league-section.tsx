@@ -12,7 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const glassCard =
-  "border border-white/30 bg-card/80 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-card/75";
+  "border border-border bg-card shadow-md backdrop-blur-sm dark:border-white/10 dark:bg-card/90";
 
 export function DashboardCreateLeagueSection() {
   const [open, setOpen] = useState(false);

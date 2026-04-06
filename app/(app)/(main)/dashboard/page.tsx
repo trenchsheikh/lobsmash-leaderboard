@@ -21,12 +21,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { JoinLeagueForm } from "@/components/join-league-form";
 import { PasteInviteLinkForm } from "@/components/paste-invite-link-form";
 import { formatDisplayName } from "@/lib/league-format";
 
 const glassCard =
-  "border border-white/30 bg-card/80 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-card/75";
+  "border border-border bg-card shadow-md backdrop-blur-sm dark:border-white/10 dark:bg-card/90";
 
 type MemberRow = {
   kind: "member";
@@ -129,7 +130,7 @@ export default async function DashboardPage() {
   );
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-7">
       <PageHeader
         title="Dashboard"
         description="Run your padel league or club: create a league, join with a code, and follow the season."
@@ -176,28 +177,25 @@ export default async function DashboardPage() {
               </p>
             </div>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Format</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead className="text-right">Open</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tableRows.map((row) =>
-                    row.kind === "member" ? (
-                      <TableRow key={`m-${row.leagueId}`}>
-                        <TableCell className="font-medium">{row.name}</TableCell>
-                        <TableCell>
+            <>
+              <ul className="flex flex-col gap-3 md:hidden" aria-label="My leagues">
+                {tableRows.map((row) =>
+                  row.kind === "member" ? (
+                    <li
+                      key={`m-${row.leagueId}`}
+                      className={cn(
+                        "rounded-2xl p-4",
+                        glassCard,
+                      )}
+                    >
+                      <div className="flex flex-col gap-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <p className="font-heading text-base font-semibold leading-tight">{row.name}</p>
                           <Badge variant="secondary">{formatDisplayName(row.format)}</Badge>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{row.code}</TableCell>
-                        <TableCell className="capitalize">{row.role}</TableCell>
-                        <TableCell className="text-right">
+                        </div>
+                        <p className="font-mono text-sm text-muted-foreground">{row.code}</p>
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
+                          <span className="text-sm capitalize text-muted-foreground">{row.role}</span>
                           <Link
                             href={`/leagues/${row.leagueId}`}
                             prefetch={false}
@@ -205,34 +203,98 @@ export default async function DashboardPage() {
                           >
                             View
                           </Link>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      <TableRow key={`p-${row.requestId}`}>
-                        <TableCell className="font-medium">{row.name}</TableCell>
-                        <TableCell>
+                        </div>
+                      </div>
+                    </li>
+                  ) : (
+                    <li
+                      key={`p-${row.requestId}`}
+                      className={cn(
+                        "rounded-2xl p-4",
+                        glassCard,
+                      )}
+                    >
+                      <div className="flex flex-col gap-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <p className="font-heading text-base font-semibold leading-tight">{row.name}</p>
                           <Badge variant="secondary">{formatDisplayName(row.format)}</Badge>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{row.code}</TableCell>
-                        <TableCell>
+                        </div>
+                        <p className="font-mono text-sm text-muted-foreground">{row.code}</p>
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
                           <Badge variant="outline" className="font-normal">
                             Requested
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
                           <Link
                             href={`/join/${row.code}`}
                             className={buttonVariants({ size: "sm", variant: "outline" })}
                           >
                             Invite page
                           </Link>
-                        </TableCell>
-                      </TableRow>
-                    ),
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                        </div>
+                      </div>
+                    </li>
+                  ),
+                )}
+              </ul>
+
+              <div className="hidden max-h-[min(60vh,36rem)] w-full overflow-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Format</TableHead>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead className="text-right">Open</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tableRows.map((row) =>
+                      row.kind === "member" ? (
+                        <TableRow key={`m-${row.leagueId}`}>
+                          <TableCell className="font-medium">{row.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{formatDisplayName(row.format)}</Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">{row.code}</TableCell>
+                          <TableCell className="capitalize">{row.role}</TableCell>
+                          <TableCell className="text-right">
+                            <Link
+                              href={`/leagues/${row.leagueId}`}
+                              prefetch={false}
+                              className={buttonVariants({ size: "sm", variant: "outline" })}
+                            >
+                              View
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        <TableRow key={`p-${row.requestId}`}>
+                          <TableCell className="font-medium">{row.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{formatDisplayName(row.format)}</Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">{row.code}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="font-normal">
+                              Requested
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Link
+                              href={`/join/${row.code}`}
+                              className={buttonVariants({ size: "sm", variant: "outline" })}
+                            >
+                              Invite page
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      ),
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

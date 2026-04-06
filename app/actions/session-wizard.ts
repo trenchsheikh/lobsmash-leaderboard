@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireOnboarded } from "@/lib/auth/profile";
 import { isLeagueFormat, sessionInputModeForFormat } from "@/lib/league-format";
 import {
@@ -96,13 +95,13 @@ export type SaveNewSessionDraftPayload = {
 };
 
 /**
- * First-time save from /sessions/new: creates the draft row, then teams and optional results.
- * On success redirects to the edit page. Games/champ rows are best-effort after teams (partial save still redirects).
+ * First-time save from the new-session wizard: creates the draft row, then teams and optional results.
+ * Returns `sessionId` so the client can navigate to the edit page. Games/champ rows are best-effort after teams.
  */
 export async function saveNewSessionDraft(
   leagueId: string,
   payload: SaveNewSessionDraftPayload,
-): Promise<{ error: string } | undefined> {
+): Promise<{ sessionId: string } | { error: string }> {
   const lid = leagueId.trim().toLowerCase();
 
   const created = await createSessionDraft(
@@ -118,8 +117,11 @@ export async function saveNewSessionDraft(
     return { error: created.error };
   }
 
-  const sessionId = (created as { sessionId: string }).sessionId;
-  const sid = sessionId.trim().toLowerCase();
+  if (!("sessionId" in created) || typeof created.sessionId !== "string") {
+    return { error: "Could not create session." };
+  }
+
+  const sid = created.sessionId.trim().toLowerCase();
 
   const { supabase } = await requireOnboarded();
   const { data: sessionRow, error: modeErr } = await supabase
@@ -157,7 +159,7 @@ export async function saveNewSessionDraft(
 
   revalidatePath(`/leagues/${lid}`);
   revalidatePath(`/leagues/${lid}/sessions/${sid}`);
-  redirect(`/leagues/${lid}/sessions/${sid}/edit`);
+  return { sessionId: sid };
 }
 
 export async function updateSessionDraftMeta(

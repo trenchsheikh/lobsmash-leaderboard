@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { headers } from "next/headers";
@@ -16,35 +15,11 @@ import {
   isLeagueFormat,
   sessionInputModeForFormat,
 } from "@/lib/league-format";
-import { DEFAULT_SKILL, formatDisplayLevel } from "@/lib/rating";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/lib/button-variants";
 import { PageHeader } from "@/components/page-header";
-import { UserAvatarDisplay } from "@/components/user-avatar-display";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { GuestPlayerForm } from "@/components/guest-player-form";
-import { AddMemberForm } from "@/components/add-member-form";
-import { MemberRoleForm } from "@/components/member-role-form";
-import { LinkPlayerButton } from "@/components/link-player-button";
-import { CopyTextButton } from "@/components/copy-text-button";
-import { PendingJoinRequestsList } from "@/components/pending-join-requests-list";
 import { DeleteLeagueButton } from "@/components/delete-league-button";
-import { UpdateLeagueCodeForm } from "@/components/update-league-code-form";
-import { LeagueSessionsList } from "@/components/league-sessions-list";
+import { LeaguePageTabs } from "@/components/league/league-page-tabs";
+import type { SpotlightPair, SpotlightPlayer } from "@/components/league/league-spotlight-podium";
 
 export const dynamic = "force-dynamic";
 
@@ -259,21 +234,33 @@ export default async function LeaguePage({ params }: PageProps) {
     pairPlayerIds.add(r.player_high as string);
   }
 
-  const { data: pairNameRows } =
+  const { data: pairPlayerRows } =
     pairPlayerIds.size > 0
-      ? await supabase.from("players").select("id, name").in("id", [...pairPlayerIds])
-      : { data: [] as { id: string; name: string }[] | null };
+      ? await supabase
+          .from("players")
+          .select("id, name, users ( username, avatar_url )")
+          .in("id", [...pairPlayerIds])
+      : { data: [] as { id: string; name: string; users: unknown }[] | null };
 
-  const nameByPlayerId = new Map(
-    (pairNameRows ?? []).map((p) => [p.id as string, (p.name as string)?.trim() || "Player"]),
-  );
+  const pairPlayerMetaById = new Map<
+    string,
+    { name: string; username: string | null; avatar_url: string | null }
+  >();
+  for (const p of pairPlayerRows ?? []) {
+    const u = p.users as { username: string | null; avatar_url: string | null } | null;
+    pairPlayerMetaById.set(p.id as string, {
+      name: (p.name as string)?.trim() || "Player",
+      username: u?.username?.trim() ?? null,
+      avatar_url: u?.avatar_url?.trim() ?? null,
+    });
+  }
 
   const pairLeaderboardRaw: PairChampionshipRow[] =
     pairStatsRows?.map((row) => {
       const pl = row.player_low as string;
       const ph = row.player_high as string;
-      const n1 = nameByPlayerId.get(pl) ?? "Player";
-      const n2 = nameByPlayerId.get(ph) ?? "Player";
+      const n1 = pairPlayerMetaById.get(pl)?.name ?? "Player";
+      const n2 = pairPlayerMetaById.get(ph)?.name ?? "Player";
       const names = [n1, n2].sort((a, b) => a.localeCompare(b));
       return {
         player_low: pl,
@@ -285,6 +272,67 @@ export default async function LeaguePage({ params }: PageProps) {
     }) ?? [];
 
   const pairLeaderboard = sortPairChampionship(pairLeaderboardRaw);
+
+  const rosterByPlayerId = new Map<
+    string,
+    { name: string; username: string | null; avatar_url: string | null }
+  >();
+  for (const p of rosterDisplay) {
+    if (p.id) {
+      rosterByPlayerId.set(p.id, {
+        name: p.name,
+        username: p.username,
+        avatar_url: p.avatar_url,
+      });
+    }
+  }
+
+  const spotlightPairs: SpotlightPair[] =
+    leagueResultsMode === "champ_court_only"
+      ? pairLeaderboard.slice(0, 3).map((row, i) => ({
+          rank: (i + 1) as 1 | 2 | 3,
+          label: row.label,
+          p1: {
+            name: pairPlayerMetaById.get(row.player_low)?.name ?? "Player",
+            username: pairPlayerMetaById.get(row.player_low)?.username ?? null,
+            avatarUrl:
+              pairPlayerMetaById.get(row.player_low)?.avatar_url ??
+              rosterByPlayerId.get(row.player_low)?.avatar_url ??
+              null,
+          },
+          p2: {
+            name: pairPlayerMetaById.get(row.player_high)?.name ?? "Player",
+            username: pairPlayerMetaById.get(row.player_high)?.username ?? null,
+            avatarUrl:
+              pairPlayerMetaById.get(row.player_high)?.avatar_url ??
+              rosterByPlayerId.get(row.player_high)?.avatar_url ??
+              null,
+          },
+          statLeft: { label: "Champ wins", value: row.championship_wins },
+          statRight: { label: "Sessions", value: row.sessions_played },
+        }))
+      : [];
+
+  const spotlightPlayers: SpotlightPlayer[] =
+    leagueResultsMode !== "champ_court_only"
+      ? leaderboard.slice(0, 3).map((row, i) => {
+          const r = rosterByPlayerId.get(row.player_id);
+          return {
+            rank: (i + 1) as 1 | 2 | 3,
+            name: r?.name ?? row.name,
+            username: r?.username ?? null,
+            avatarUrl: r?.avatar_url ?? null,
+            statLeft:
+              leagueFormat === "summit"
+                ? { label: "Sessions", value: row.sessions_played }
+                : { label: "Points", value: row.total_points },
+            statRight:
+              leagueFormat === "summit"
+                ? { label: "Wins", value: row.total_wins }
+                : { label: "Games", value: row.total_games },
+          };
+        })
+      : [];
 
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
@@ -321,8 +369,29 @@ export default async function LeaguePage({ params }: PageProps) {
       };
     }) ?? [];
 
+  const rosterSkillRecord = Object.fromEntries(rosterSkillByPlayerId);
+
+  const lastCourtCount = (league as { last_court_count?: number | null }).last_court_count;
+  const sessionWizardDefaultCourts =
+    typeof lastCourtCount === "number" && lastCourtCount >= 1 && lastCourtCount <= 12
+      ? lastCourtCount
+      : 4;
+
+  const newSessionWizard =
+    canAdmin
+      ? {
+          roster: rosterDisplay.map((r) => ({
+            playerId: r.id,
+            displayName: r.name.trim() || "Player",
+            username: r.username,
+            isGuest: r.isGuest,
+          })),
+          defaultCourts: sessionWizardDefaultCourts,
+        }
+      : undefined;
+
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={league.name}
         description={
@@ -341,449 +410,34 @@ export default async function LeaguePage({ params }: PageProps) {
         }
       />
 
-      {canAdmin && inviteUrl ? (
-        <Card className="border-border/80 shadow-sm">
-          <CardHeader>
-            <CardTitle>Invite link</CardTitle>
-            <CardDescription>
-              Uses your league reference code in the URL (short and easy to share). People request to
-              join; you approve or decline below.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-              <code className="min-w-0 flex-1 break-all rounded-lg border border-border/80 bg-muted/30 px-3 py-2.5 text-sm leading-relaxed">
-                {inviteUrl}
-              </code>
-              <CopyTextButton text={inviteUrl} label="Copy link" />
-            </div>
-            {isOwner ? (
-              <UpdateLeagueCodeForm leagueId={leagueId} currentCode={refCode} />
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {canAdmin && pendingJoinRequests.length > 0 ? (
-        <Card className="border-border/80 shadow-sm">
-          <CardHeader>
-            <CardTitle>Join requests</CardTitle>
-            <CardDescription>Approve or decline people who asked to join this league.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PendingJoinRequestsList requests={pendingJoinRequests} />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {canAdmin ? (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="border-border/80 shadow-sm">
-            <CardHeader>
-              <CardTitle>Add members</CardTitle>
-              <CardDescription>
-                Invite by exact username, search players you share a league with, or pick someone from your other leagues.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AddMemberForm leagueId={leagueId} />
-            </CardContent>
-          </Card>
-          <Card className="border-border/80 shadow-sm">
-            <CardHeader>
-              <CardTitle>Add guest player</CardTitle>
-              <CardDescription>Guests are not linked to a login; ideal for one-off fill-ins.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <GuestPlayerForm leagueId={leagueId} />
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
-
-      {canAdmin && membersNeedingLink.length > 0 ? (
-        <Card className="border-border/80 shadow-sm">
-          <CardHeader>
-            <CardTitle>Link members to roster</CardTitle>
-            <CardDescription>
-              These members have a player profile but are not on the league roster yet.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {membersNeedingLink.map((m) => (
-              <div
-                key={m.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/80 p-3"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <UserAvatarDisplay
-                    name={m.name}
-                    username={m.username}
-                    avatarUrl={m.avatar_url}
-                    size="sm"
-                  />
-                  <div className="min-w-0">
-                    <p className="font-mono font-medium">
-                      {m.username ? `@${m.username}` : "—"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{m.name}</p>
-                  </div>
-                </div>
-                <LinkPlayerButton leagueId={leagueId} targetUserId={m.user_id} />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card className="border-border/80 shadow-sm">
-        <CardHeader>
-          <CardTitle>Members</CardTitle>
-          <CardDescription>Roles control who can edit sessions and scores.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="w-full overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead className="text-right">Role</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {memberRows.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <UserAvatarDisplay
-                          name={m.name}
-                          username={m.username}
-                          avatarUrl={m.avatar_url}
-                          size="sm"
-                        />
-                        <div>
-                          <div className="font-mono font-medium">
-                            {m.username ? `@${m.username}` : "—"}
-                          </div>
-                          <div className="text-xs text-muted-foreground">{m.name}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {isOwner && m.user_id !== user.id ? (
-                        <MemberRoleForm
-                          leagueId={leagueId}
-                          memberId={m.id}
-                          currentRole={m.role as "owner" | "admin" | "player"}
-                        />
-                      ) : (
-                        <span className="capitalize">{m.role}</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/80 shadow-sm">
-        <CardHeader>
-          <CardTitle>Roster</CardTitle>
-          <CardDescription>
-            Players attached to this league for sessions and stats. Skill is a global model level (0–7)
-            from all rated sessions.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {rosterDisplay.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No players linked yet.</p>
-          ) : (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {rosterDisplay.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center gap-3 rounded-md border border-border/80 px-3 py-2 text-sm"
-                >
-                  {!p.isGuest ? (
-                    <UserAvatarDisplay
-                      name={p.name}
-                      username={p.username}
-                      avatarUrl={p.avatar_url}
-                      size="sm"
-                    />
-                  ) : (
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                      G
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <span className="font-medium">{p.name}</span>
-                    {!p.isGuest && p.username ? (
-                      <span className="ml-2 font-mono text-xs text-muted-foreground">
-                        @{p.username}
-                      </span>
-                    ) : null}
-                    {p.isGuest ? (
-                      <Badge variant="outline" className="ml-2 text-xs">
-                        Guest
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <span className="shrink-0 tabular-nums text-xs text-muted-foreground" title="Global skill level">
-                    {p.isGuest
-                      ? "—"
-                      : `Lv ${formatDisplayLevel(rosterSkillByPlayerId.get(p.id) ?? DEFAULT_SKILL)}`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/80 shadow-sm">
-        <CardHeader>
-          <CardTitle>Sessions</CardTitle>
-          <CardDescription>
-            Create a session with the wizard (teams, courts, results). Stats update when you mark a
-            session completed. Open any session below to see games, scores, and court 1 results again—
-            <span className="font-medium text-foreground"> Session 1</span> is the most recent.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          {canAdmin ? (
-            <Link
-              href={`/leagues/${leagueId}/sessions/new`}
-              prefetch={false}
-              className={buttonVariants({ className: "w-fit" })}
-            >
-              Create session
-            </Link>
-          ) : null}
-          {sessionsErr ? (
-            <p className="text-sm text-destructive">
-              Could not load sessions: {sessionsErr.message}. Apply pending SQL migrations from{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">supabase/migrations</code> (see{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">HOSTED_SETUP.md</code>).
-            </p>
-          ) : sessions?.length ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-                {canAdmin ? "Past sessions" : "Sessions"}
-              </p>
-              <LeagueSessionsList leagueId={leagueId} sessions={sessions} />
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No sessions yet.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {leagueResultsMode === "champ_court_only" ? (
-        <>
-          <Card className="border-border/80 shadow-sm">
-            <CardHeader>
-              <CardTitle>Championship pairs</CardTitle>
-              <CardDescription>
-                Primary ranking for this league: how each{" "}
-                <span className="font-medium text-foreground">fixed pair</span> (same two players) has done
-                together — court 1 wins from completed sessions. Sessions counts completed champ sessions
-                where that pair had a team row. Different partners in different weeks are separate rows.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {pairLeaderboard.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No pair stats yet — complete a session with court 1 win counts for each team.
-                </p>
-              ) : (
-                <div className="w-full overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>Pair</TableHead>
-                        <TableHead className="text-right">Sessions</TableHead>
-                        <TableHead className="text-right">Champ wins</TableHead>
-                        <TableHead className="text-right">Avg wins/session</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pairLeaderboard.map((row, idx) => {
-                        const avgWinsPerSession =
-                          row.sessions_played > 0
-                            ? (row.championship_wins / row.sessions_played).toFixed(1)
-                            : "—";
-                        return (
-                          <TableRow key={`${row.player_low}-${row.player_high}`}>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{row.label}</TableCell>
-                            <TableCell className="text-right tabular-nums">{row.sessions_played}</TableCell>
-                            <TableCell className="text-right tabular-nums">{row.championship_wins}</TableCell>
-                            <TableCell className="text-right tabular-nums">{avgWinsPerSession}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/80 shadow-sm">
-            <CardHeader>
-              <CardTitle>Player leaderboard</CardTitle>
-              <CardDescription>
-                Secondary view: individual totals across completed sessions (partners can change week to week).
-                Sorted by total wins, then sessions played, then name.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {leaderboard.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Play some games to populate stats.</p>
-              ) : (
-                <div className="w-full overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>Player</TableHead>
-                        <TableHead className="text-right">Sessions</TableHead>
-                        <TableHead className="text-right">Wins</TableHead>
-                        <TableHead className="text-right">Avg wins/session</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {leaderboard.map((row, idx) => {
-                        const avgWinsPerSession =
-                          row.sessions_played > 0
-                            ? (row.total_wins / row.sessions_played).toFixed(1)
-                            : "—";
-                        return (
-                          <TableRow key={row.player_id}>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{row.name}</TableCell>
-                            <TableCell className="text-right tabular-nums">{row.sessions_played}</TableCell>
-                            <TableCell className="text-right tabular-nums">{row.total_wins}</TableCell>
-                            <TableCell className="text-right tabular-nums">{avgWinsPerSession}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      ) : (
-        <>
-          <Card className="border-border/80 shadow-sm">
-            <CardHeader>
-              <CardTitle>Player leaderboard</CardTitle>
-              <CardDescription>
-                {playerLeaderboardSummitStyle ? (
-                  <>
-                    Individual totals across completed sessions (partners can change week to week). Sorted by
-                    total wins, then sessions played, then name.
-                  </>
-                ) : (
-                  <>
-                    Individual totals across completed sessions (partners can change week to week). Americano:
-                    total points, then wins, games, court 1 wins.
-                  </>
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {leaderboard.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Play some games to populate stats.</p>
-              ) : (
-                <div className="w-full overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>Player</TableHead>
-                        {playerLeaderboardSummitStyle ? (
-                          <>
-                            <TableHead className="text-right">Sessions</TableHead>
-                            <TableHead className="text-right">Wins</TableHead>
-                            <TableHead className="text-right">Avg wins/session</TableHead>
-                          </>
-                        ) : (
-                          <>
-                            <TableHead className="text-right">Court1 W</TableHead>
-                            <TableHead className="text-right">Wins</TableHead>
-                            <TableHead className="text-right">Games</TableHead>
-                            <TableHead className="text-right">Points</TableHead>
-                            <TableHead className="text-right">Win rate</TableHead>
-                          </>
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {leaderboard.map((row, idx) => {
-                        const avgWinsPerSession =
-                          row.sessions_played > 0
-                            ? (row.total_wins / row.sessions_played).toFixed(1)
-                            : "—";
-                        const winRate =
-                          row.total_games > 0
-                            ? `${Math.round((row.total_wins / row.total_games) * 100)}%`
-                            : "—";
-                        return (
-                          <TableRow key={row.player_id}>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell className="font-medium">{row.name}</TableCell>
-                            {playerLeaderboardSummitStyle ? (
-                              <>
-                                <TableCell className="text-right tabular-nums">
-                                  {row.sessions_played}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">{row.total_wins}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                  {avgWinsPerSession}
-                                </TableCell>
-                              </>
-                            ) : (
-                              <>
-                                <TableCell className="text-right tabular-nums">{row.court1_wins}</TableCell>
-                                <TableCell className="text-right tabular-nums">{row.total_wins}</TableCell>
-                                <TableCell className="text-right tabular-nums">{row.total_games}</TableCell>
-                                <TableCell className="text-right tabular-nums">{row.total_points}</TableCell>
-                                <TableCell className="text-right tabular-nums">{winRate}</TableCell>
-                              </>
-                            )}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/80 shadow-sm">
-            <CardHeader>
-              <CardTitle>Championship pairs</CardTitle>
-              <CardDescription>
-                Not used for this league — sessions record full game scores on every court. Pair rankings apply
-                only to leagues created in &quot;Championship court only&quot; results mode.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                The player leaderboard above reflects how this league is set up.
-              </p>
-            </CardContent>
-          </Card>
-        </>
-      )}
+      <LeaguePageTabs
+        leagueId={leagueId}
+        currentUserId={user.id}
+        leagueResultsMode={leagueResultsMode}
+        playerLeaderboardSummitStyle={playerLeaderboardSummitStyle}
+        canAdmin={canAdmin}
+        isOwner={isOwner}
+        inviteUrl={inviteUrl}
+        refCode={refCode}
+        pendingJoinRequests={pendingJoinRequests}
+        membersNeedingLink={membersNeedingLink.map((m) => ({
+          id: m.id,
+          user_id: m.user_id,
+          name: m.name,
+          username: m.username,
+          avatar_url: m.avatar_url,
+        }))}
+        memberRows={memberRows}
+        rosterDisplay={rosterDisplay}
+        rosterSkillByPlayerId={rosterSkillRecord}
+        sessions={sessions}
+        sessionsErr={sessionsErr ? { message: sessionsErr.message } : null}
+        leaderboard={leaderboard}
+        pairLeaderboard={pairLeaderboard}
+        spotlightPairs={spotlightPairs}
+        spotlightPlayers={spotlightPlayers}
+        newSessionWizard={newSessionWizard}
+      />
     </div>
   );
 }

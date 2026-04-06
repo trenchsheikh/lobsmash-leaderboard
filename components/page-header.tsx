@@ -10,18 +10,18 @@ type Props = {
 };
 
 const glassPanel =
-  "rounded-xl border border-white/30 bg-card/80 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-card/75";
+  "rounded-xl border border-border bg-card shadow-md backdrop-blur-sm dark:border-white/12 dark:bg-card/90";
 
 export function PageHeader({ title, description, actions, className }: Props) {
   return (
-    <div className={cn(glassPanel, "p-4 sm:p-5", className)}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+    <div className={cn(glassPanel, "p-3.5 sm:p-4", className)}>
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          <h1 className="font-heading text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:text-3xl">
             {title}
           </h1>
           {description ? (
-            <div className="mt-1.5 max-w-2xl text-pretty text-foreground/85">{description}</div>
+            <div className="mt-1.5 max-w-2xl text-pretty text-muted-foreground">{description}</div>
           ) : null}
         </div>
         {actions ? (
