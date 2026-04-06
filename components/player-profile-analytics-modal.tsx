@@ -50,14 +50,21 @@ function RadarHexagon({
   const cx = 50;
   const cy = 50;
   const r = 38;
-  const pts = order.map((key, i) => {
+
+  const dataVertices = order.map((key, i) => {
     const angle = (-Math.PI / 2 + (i * 2 * Math.PI) / n) % (2 * Math.PI);
     const v = (axes[key] ?? 50) / 100;
     const r1 = r * v;
-    return `${cx + r1 * Math.cos(angle)},${cy + r1 * Math.sin(angle)}`;
+    return {
+      x: cx + r1 * Math.cos(angle),
+      y: cy + r1 * Math.sin(angle),
+      key,
+      angle,
+    };
   });
-  const poly = pts.join(" ");
-  const grid = order
+  const poly = dataVertices.map((p) => `${p.x},${p.y}`).join(" ");
+
+  const gridOuter = order
     .map((_, i) => {
       const angle = (-Math.PI / 2 + (i * 2 * Math.PI) / n) % (2 * Math.PI);
       return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`;
@@ -65,55 +72,75 @@ function RadarHexagon({
     .join(" ");
 
   return (
-    <div className={cn("relative", className)}>
-      <svg viewBox="0 0 100 100" className="h-full w-full max-w-[280px] text-muted-foreground">
-        <polygon
-          points={grid}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="0.35"
-          opacity={0.35}
-        />
-        {[0.33, 0.66].map((t) => (
+    <div className={cn("relative font-heading", className)}>
+      <svg
+        viewBox="0 0 100 100"
+        className="h-auto w-full max-w-[280px] overflow-visible"
+        aria-hidden
+      >
+        <g className="text-border/50">
           <polygon
-            key={t}
-            points={order
-              .map((_, i) => {
-                const angle = (-Math.PI / 2 + (i * 2 * Math.PI) / n) % (2 * Math.PI);
-                const rr = r * t;
-                return `${cx + rr * Math.cos(angle)},${cy + rr * Math.sin(angle)}`;
-              })
-              .join(" ")}
+            points={gridOuter}
             fill="none"
             stroke="currentColor"
-            strokeWidth="0.2"
-            opacity={0.2}
+            strokeWidth={0.4}
           />
-        ))}
+          {[0.33, 0.66].map((t) => (
+            <polygon
+              key={t}
+              points={order
+                .map((_, i) => {
+                  const angle = (-Math.PI / 2 + (i * 2 * Math.PI) / n) % (2 * Math.PI);
+                  const rr = r * t;
+                  return `${cx + rr * Math.cos(angle)},${cy + rr * Math.sin(angle)}`;
+                })
+                .join(" ")}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={0.22}
+              opacity={0.65}
+            />
+          ))}
+        </g>
         <polygon
           points={poly}
-          fill="hsl(var(--primary) / 0.25)"
+          fill="none"
           stroke="hsl(var(--primary))"
-          strokeWidth="0.6"
-          className="drop-shadow-sm"
+          strokeWidth={0.85}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          className="drop-shadow-[0_0_6px_hsl(var(--primary)/0.35)]"
         />
-        {order.map((key, i) => {
-          const angle = (-Math.PI / 2 + (i * 2 * Math.PI) / n) % (2 * Math.PI);
-          const lx = cx + (r + 10) * Math.cos(angle);
-          const ly = cy + (r + 10) * Math.sin(angle);
+        {dataVertices.map((p) => (
+          <circle
+            key={p.key}
+            cx={p.x}
+            cy={p.y}
+            r={1.35}
+            className="fill-amber-500 stroke-primary dark:fill-amber-400"
+            strokeWidth={0.35}
+          />
+        ))}
+        {dataVertices.map((p) => {
+          const lx = cx + (r + 10) * Math.cos(p.angle);
+          const ly = cy + (r + 10) * Math.sin(p.angle);
           const anchor =
-            Math.abs(Math.cos(angle)) < 0.2 ? "middle" : Math.cos(angle) > 0 ? "start" : "end";
+            Math.abs(Math.cos(p.angle)) < 0.2
+              ? "middle"
+              : Math.cos(p.angle) > 0
+                ? "start"
+                : "end";
           return (
             <text
-              key={key}
+              key={`${p.key}-label`}
               x={lx}
               y={ly}
               textAnchor={anchor}
               dominantBaseline="middle"
-              className="fill-muted-foreground font-medium uppercase tracking-wide"
-              style={{ fontSize: 2.4 }}
+              className="fill-muted-foreground font-semibold uppercase tracking-wide"
+              style={{ fontSize: 2.35 }}
             >
-              {labels[key].split(" / ")[0]}
+              {labels[p.key].split(" / ")[0]}
             </text>
           );
         })}
@@ -174,31 +201,39 @@ export function PlayerProfileAnalyticsModal({
   >("none");
   const [adding, setAdding] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!playerId || !open) return;
-    setLoading(true);
-    setError(null);
+  const load = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!playerId || !open) return;
+      const silent = options?.silent ?? false;
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
 
-    const { data: playerRow, error: pErr } = await supabase
-      .from("players")
-      .select(
-        "id, user_id, playstyle, strengths, weaknesses, preferred_side, experience_level",
-      )
-      .eq("id", playerId)
-      .maybeSingle();
+      const { data: playerRow, error: pErr } = await supabase
+        .from("players")
+        .select(
+          "id, user_id, playstyle, strengths, weaknesses, preferred_side, experience_level",
+        )
+        .eq("id", playerId)
+        .maybeSingle();
 
-    if (pErr || !playerRow) {
-      setError(pErr?.message ?? "Could not load player.");
-      setLoading(false);
-      return;
-    }
+      if (pErr || !playerRow) {
+        if (!silent) {
+          setError(pErr?.message ?? "Could not load player.");
+          setLoading(false);
+        }
+        return;
+      }
 
-    const uid = playerRow.user_id as string | null;
-    if (!uid) {
-      setError("This guest player has no profile.");
-      setLoading(false);
-      return;
-    }
+      const uid = playerRow.user_id as string | null;
+      if (!uid) {
+        if (!silent) {
+          setError("This guest player has no profile.");
+          setLoading(false);
+        }
+        return;
+      }
 
     setTargetUserId(uid);
     if (uid === currentUserId) {
@@ -334,14 +369,34 @@ export function PlayerProfileAnalyticsModal({
       setFriendship("none");
     }
 
-    setLoading(false);
-  }, [playerId, open, supabase, leagueId, leagueResultsMode, currentUserId]);
+      if (!silent) setLoading(false);
+    },
+    [playerId, open, supabase, leagueId, leagueResultsMode, currentUserId],
+  );
 
   useEffect(() => {
     queueMicrotask(() => {
       void load();
     });
   }, [load]);
+
+  useEffect(() => {
+    if (!open || !playerId) return;
+    const intervalMs = 18_000;
+    const id = window.setInterval(() => {
+      void load({ silent: true });
+    }, intervalMs);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void load({ silent: true });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [open, playerId, load]);
 
   const radarDisplay =
     strengths.length ||
@@ -514,7 +569,7 @@ export function PlayerProfileAnalyticsModal({
                   </div>
                 ) : null}
               </div>
-              <div className="flex min-h-[200px] items-center justify-center rounded-xl border border-border/60 bg-background/50">
+              <div className="flex w-full justify-center lg:items-start lg:justify-end lg:pt-0.5">
                 <RadarHexagon axes={radarDisplay} />
               </div>
             </div>
