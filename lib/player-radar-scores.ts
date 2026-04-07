@@ -159,6 +159,28 @@ export function neutralRadar(): RadarAxes {
   };
 }
 
+/** Average two radars (e.g. fixed pair “together” style chart). */
+export function averageRadarAxes(a: RadarAxes, b: RadarAxes): RadarAxes {
+  const keys: (keyof RadarAxes)[] = [
+    "offense",
+    "defense",
+    "netPlay",
+    "wallsLobs",
+    "serveReturn",
+    "consistency",
+  ];
+  const out = {} as RadarAxes;
+  for (const k of keys) {
+    out[k] = Math.round((a[k] + b[k]) / 2);
+  }
+  return out;
+}
+
+export function meanRadarValue(axes: RadarAxes): number {
+  const v = Object.values(axes);
+  return v.reduce((s, n) => s + n, 0) / v.length;
+}
+
 export function formatLeagueRankLine(
   format: LeagueFormat,
   row: {

@@ -52,6 +52,8 @@ type Props =
       fullStandingsHref?: string;
       onFullTableClick?: () => void;
       onPlayerClick?: (playerId: string) => void;
+      /** Opens team stats (pair row); avatar clicks should stopPropagation. */
+      onPairClick?: (playerLow: string, playerHigh: string) => void;
     };
 
 export function LeagueSpotlightPodium(props: Props) {
@@ -137,6 +139,7 @@ export function LeagueSpotlightPodium(props: Props) {
               key={`${pair.rank}-${pair.label}`}
               pair={pair}
               onPlayerClick={"onPlayerClick" in props ? props.onPlayerClick : undefined}
+              onPairClick={"onPairClick" in props ? props.onPairClick : undefined}
             />
           ))}
         </div>
@@ -246,19 +249,41 @@ function PlayerPillar({
 function PairPillar({
   pair,
   onPlayerClick,
+  onPairClick,
 }: {
   pair: SpotlightPair;
   onPlayerClick?: (playerId: string) => void;
+  onPairClick?: (playerLow: string, playerHigh: string) => void;
 }) {
   const isFirst = pair.rank === 1;
   const interactive = Boolean(onPlayerClick);
+  const pairInteractive = Boolean(onPairClick);
   return (
     <div
+      role={pairInteractive ? "button" : undefined}
+      tabIndex={pairInteractive ? 0 : undefined}
+      onClick={
+        pairInteractive
+          ? () => onPairClick?.(pair.playerLow, pair.playerHigh)
+          : undefined
+      }
+      onKeyDown={
+        pairInteractive
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onPairClick?.(pair.playerLow, pair.playerHigh);
+              }
+            }
+          : undefined
+      }
       className={cn(
         "flex min-w-0 flex-col items-center rounded-2xl border bg-background/80 px-2 py-4 text-center dark:bg-background/40",
         isFirst
           ? "border-primary/35 ring-1 ring-primary/20 shadow-md"
           : "border-border/50 shadow-sm",
+        pairInteractive &&
+          "cursor-pointer outline-none transition-colors hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring",
       )}
     >
       {isFirst ? (
@@ -279,7 +304,10 @@ function PairPillar({
                 "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
                 interactive && "cursor-pointer",
               )}
-              onClick={() => onPlayerClick?.(pair.p1.playerId)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlayerClick?.(pair.p1.playerId);
+              }}
               disabled={!interactive}
             >
               <UserAvatarDisplay
@@ -296,7 +324,10 @@ function PairPillar({
                 "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
                 interactive && "cursor-pointer",
               )}
-              onClick={() => onPlayerClick?.(pair.p2.playerId)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlayerClick?.(pair.p2.playerId);
+              }}
               disabled={!interactive}
             >
               <UserAvatarDisplay
@@ -317,7 +348,10 @@ function PairPillar({
               "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
               interactive && "cursor-pointer",
             )}
-            onClick={() => onPlayerClick?.(pair.p1.playerId)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlayerClick?.(pair.p1.playerId);
+            }}
             disabled={!interactive}
           >
             <UserAvatarDisplay
@@ -334,7 +368,10 @@ function PairPillar({
               "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
               interactive && "cursor-pointer",
             )}
-            onClick={() => onPlayerClick?.(pair.p2.playerId)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlayerClick?.(pair.p2.playerId);
+            }}
             disabled={!interactive}
           >
             <UserAvatarDisplay

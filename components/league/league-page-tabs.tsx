@@ -7,6 +7,7 @@ import type { LeaderboardRow, PairChampionshipRow } from "@/lib/leaderboard";
 import { DEFAULT_SKILL, formatDisplayLevel } from "@/lib/rating";
 import { useSupabaseBrowser } from "@/lib/supabase/client";
 import { useLeagueDraftLive } from "@/components/league/use-league-draft-live";
+import { PairTeamStatsModal } from "@/components/pair-team-stats-modal";
 import { PlayerProfileAnalyticsModal } from "@/components/player-profile-analytics-modal";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/lib/button-variants";
@@ -154,6 +155,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
   const [createSessionOpen, setCreateSessionOpen] = useState(false);
   const [wizardMountKey, setWizardMountKey] = useState(0);
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
+  const [selectedPair, setSelectedPair] = useState<PairChampionshipRow | null>(null);
 
   const openPlayerProfile = useCallback((playerId: string, isGuest?: boolean) => {
     if (isGuest) {
@@ -175,6 +177,17 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
       document.getElementById("full-standings")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   }, []);
+
+  const openPairByPlayerIds = useCallback(
+    (low: string, high: string) => {
+      const pl = low < high ? low : high;
+      const ph = low < high ? high : low;
+      const row = pairLeaderboard.find((r) => r.player_low === pl && r.player_high === ph);
+      if (row) setSelectedPair(row);
+      else toast.message("Team stats aren’t available for this pair yet.");
+    },
+    [pairLeaderboard],
+  );
 
   function playerLeaderNameCell(row: LeaderboardRow, idx: number) {
     const roster = rosterDisplay.find((r) => r.id === row.player_id);
@@ -210,6 +223,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
           pairs: spotlightPairs,
           onFullTableClick: goStandings,
           onPlayerClick: (pid: string) => openPlayerProfile(pid, false),
+          onPairClick: openPairByPlayerIds,
         } as const)
       : ({
           variant: "players" as const,
@@ -295,7 +309,10 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                               <button
                                 type="button"
                                 className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                onClick={() => openPlayerProfile(row.player_low, Boolean(gLow))}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPlayerProfile(row.player_low, Boolean(gLow));
+                                }}
                               >
                                 <UserAvatarDisplay
                                   name={pLow?.name ?? "—"}
@@ -307,7 +324,10 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                               <button
                                 type="button"
                                 className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                onClick={() => openPlayerProfile(row.player_high, Boolean(gHigh))}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPlayerProfile(row.player_high, Boolean(gHigh));
+                                }}
                               >
                                 <UserAvatarDisplay
                                   name={pHigh?.name ?? "—"}
@@ -319,7 +339,11 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                             </div>
                           );
                           return (
-                            <TableRow key={`${row.player_low}-${row.player_high}`}>
+                            <TableRow
+                              key={`${row.player_low}-${row.player_high}`}
+                              className="cursor-pointer transition-colors hover:bg-muted/40"
+                              onClick={() => setSelectedPair(row)}
+                            >
                               <TableCell>{idx + 1}</TableCell>
                               <TableCell>
                                 <div className="flex min-w-0 items-center gap-2">
@@ -803,6 +827,15 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
         leagueFormat={leagueFormat}
         leagueResultsMode={leagueResultsMode}
         currentUserId={currentUserId}
+      />
+
+      <PairTeamStatsModal
+        open={selectedPair !== null}
+        onOpenChange={(o) => {
+          if (!o) setSelectedPair(null);
+        }}
+        pair={selectedPair}
+        pairPlayerMetaById={pairPlayerMetaById}
       />
     </Tabs>
   );
