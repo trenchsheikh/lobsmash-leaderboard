@@ -43,6 +43,10 @@ import { PendingJoinRequestsList } from "@/components/pending-join-requests-list
 import { UpdateLeagueCodeForm } from "@/components/update-league-code-form";
 import { LeagueSessionsList, type LeagueSessionRow } from "@/components/league-sessions-list";
 import { LeagueOverviewSummary } from "@/components/league/league-overview-summary";
+import {
+  LeagueOverviewNextSession,
+  type LeagueOverviewNextSessionPayload,
+} from "@/components/league/league-overview-next-session";
 import { LeagueSpotlightPodium } from "@/components/league/league-spotlight-podium";
 import {
   AlertDialog,
@@ -114,6 +118,7 @@ export type LeaguePageTabsProps = {
     username: string | null;
     avatar_url: string | null;
     isGuest: boolean;
+    playstyle?: string | null;
   }>;
   rosterSkillByPlayerId: Record<string, number>;
   /** Avatars/usernames for pair leaderboard rows (championship mode). */
@@ -130,6 +135,8 @@ export type LeaguePageTabsProps = {
     roster: RosterPlayer[];
     defaultCourts: number;
   };
+  /** Next non-completed session and partner for the signed-in member (server-derived). */
+  overviewNextSession?: LeagueOverviewNextSessionPayload | null;
 };
 
 export function LeaguePageTabs(props: LeaguePageTabsProps) {
@@ -154,6 +161,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
     leaderboard: officialLeaderboard,
     pairLeaderboard: officialPairLeaderboard,
     newSessionWizard,
+    overviewNextSession = null,
   } = props;
 
   const supabase = useSupabaseBrowser();
@@ -328,16 +336,21 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
       </TabsList>
 
       <TabsContent value="overview" className="space-y-6">
-        {hasDraftSessions ? (
+        {hasDraftSessions && hasDraftProjection ? (
           <p className="text-xs text-muted-foreground">
             <Badge variant="outline" className="mr-2 align-middle">
               Live
             </Badge>
-            {hasDraftProjection
-              ? "Standings include in-progress draft sessions. Skill preview updates as results are entered; official ratings apply when a session is completed."
-              : "Draft session(s) in progress — add scores to see standings and skill preview update."}
+            Standings include in-progress live sessions. Skill preview updates as results are entered;
+            official ratings apply when a session is completed.
           </p>
         ) : null}
+        <LeagueOverviewNextSession
+          leagueId={leagueId}
+          payload={overviewNextSession}
+          onPartnerClick={openPlayerProfile}
+          onGoToPeople={() => setTab("people")}
+        />
         <LeagueOverviewSummary
           rosterDisplay={rosterDisplay}
           rosterSkillByPlayerId={rosterSkillByPlayerId}
@@ -363,7 +376,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   where that pair had a team row. Different partners in different weeks are separate rows.
                   {hasDraftSessions ? (
                     <span className="mt-2 block text-amber-800/95 dark:text-amber-400/90">
-                      Includes in-progress draft sessions until they are completed.
+                      Includes in-progress live sessions until they are completed.
                     </span>
                   ) : null}
                 </CardDescription>
@@ -392,7 +405,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   Sorted by total wins, then sessions played, then name.
                   {hasDraftSessions ? (
                     <span className="mt-2 block text-amber-800/95 dark:text-amber-400/90">
-                      Includes in-progress draft sessions until they are completed.
+                      Includes in-progress live sessions until they are completed.
                     </span>
                   ) : null}
                 </CardDescription>
@@ -433,7 +446,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   )}
                   {hasDraftSessions ? (
                     <span className="mt-2 block text-amber-800/95 dark:text-amber-400/90">
-                      Includes in-progress draft sessions until they are completed.
+                      Includes in-progress live sessions until they are completed.
                     </span>
                   ) : null}
                 </CardDescription>
@@ -636,7 +649,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                       </button>
                       <span
                         className="shrink-0 text-right text-xs text-muted-foreground tabular-nums"
-                        title="Global skill level; amber Δ is a preview from open drafts"
+                        title="Global skill level; amber Δ is a preview from live in-progress sessions"
                       >
                         {p.isGuest ? (
                           "—"
@@ -696,20 +709,23 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   <SheetContent
                     side="right"
                     showCloseButton
-                    className="flex h-full max-h-[100dvh] w-full flex-col gap-0 border-l p-0 sm:max-w-2xl"
+                    className="flex h-full max-h-[100dvh] w-full flex-col gap-0 border-l p-0 sm:max-w-3xl"
                   >
                     <SheetHeader className="shrink-0 border-b border-border/80 px-4 py-4 sm:px-6">
                       <SheetTitle className="font-heading text-lg">
-                        {createFlowPhase === "saved" ? "Draft saved" : "New session"}
+                        {createFlowPhase === "saved" ? "Session saved" : "New session"}
                       </SheetTitle>
                       <SheetDescription>
                         {createFlowPhase === "saved" ? (
                           <>
-                            Your session is stored as a draft. Open the editor anytime to finish teams,
+                            Your session is live on this league. Open the editor anytime to finish teams,
                             results, or mark it complete.
                           </>
                         ) : (
-                          <>Add teams, courts, and results—then use Save draft at the bottom to keep this session.</>
+                          <>
+                            Add teams, courts, and results—then use Save session at the bottom to add it to the
+                            league.
+                          </>
                         )}
                       </SheetDescription>
                     </SheetHeader>
@@ -764,8 +780,8 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Discard unsaved session?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        You have changes that are not saved to the database yet. If you leave now, this
-                        draft will be lost.
+                        You have changes that are not saved to the database yet. If you leave now, those
+                        changes will be lost.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -790,6 +806,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   leagueId={leagueId}
                   sessions={sessions}
                   sectionLabel={canAdmin ? "Past sessions" : "Recent sessions"}
+                  showDraftSetupHints={canAdmin}
                 />
               </div>
             ) : (

@@ -389,7 +389,7 @@ export function SessionCreateWizard({
     const payload = teams.map(([playerA, playerB]) => ({ playerA, playerB }));
     if (!hasPersistedSession) {
       applyLocalPostSaveTeamsLayout();
-      toast.success("Teams saved locally — use Save draft to store.");
+      toast.success("Teams saved locally — use Save session to store.");
       return;
     }
     startTransition(async () => {
@@ -436,7 +436,7 @@ export function SessionCreateWizard({
   /** Persists current teams to `session_teams`, then court-1 wins. Server validates pairs against saved teams. */
   async function persistChampCourt1Results(): Promise<{ error?: string }> {
     if (!sessionId) {
-      return { error: "Save draft first." };
+      return { error: "Save session first." };
     }
     const sid = sessionId;
     if (teams.length < teamsRequired) {
@@ -530,7 +530,7 @@ export function SessionCreateWizard({
           toast.error("Court 1 wins are out of sync with teams — save teams again.");
           return;
         }
-        toast.success("Court 1 results saved locally — use Save draft to store.");
+        toast.success("Court 1 results saved locally — use Save session to store.");
         return;
       }
       startTransition(async () => {
@@ -573,7 +573,7 @@ export function SessionCreateWizard({
     }
 
     if (!hasPersistedSession) {
-      toast.success("Results saved locally — use Save draft to store.");
+      toast.success("Results saved locally — use Save session to store.");
       return;
     }
 
@@ -592,7 +592,7 @@ export function SessionCreateWizard({
 
   function onComplete() {
     if (!sessionId) {
-      toast.error("Save draft first to create this session.");
+      toast.error("Save session first to create this session.");
       return;
     }
     startTransition(async () => {
@@ -805,19 +805,19 @@ export function SessionCreateWizard({
         {roster.length === 0 ? (
           <p className="text-sm text-muted-foreground">No players on this league roster yet.</p>
         ) : (
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {roster.map((p) => {
               const selected = attendingIds.includes(p.playerId);
               const disabledTile = !selected && atAttendanceCap;
               return (
-                <li key={p.playerId}>
+                <li key={p.playerId} className="min-w-0">
                   <button
                     type="button"
                     disabled={disabledTile}
                     aria-pressed={selected}
                     onClick={() => toggleAttend(p.playerId)}
                     className={cn(
-                      "relative flex min-h-[4.25rem] w-full flex-col gap-0.5 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                      "relative flex min-h-[4.25rem] min-w-0 w-full flex-col gap-0.5 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
                       "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                       "disabled:cursor-not-allowed disabled:opacity-50",
                       selected
@@ -833,9 +833,9 @@ export function SessionCreateWizard({
                         strokeWidth={2.5}
                       />
                     ) : null}
-                    <span className="pr-6 font-medium leading-tight">{p.displayName}</span>
+                    <span className="min-w-0 pr-6 break-words font-medium leading-tight">{p.displayName}</span>
                     {p.username ? (
-                      <span className="text-muted-foreground text-xs">@{p.username}</span>
+                      <span className="min-w-0 break-words text-muted-foreground text-xs">@{p.username}</span>
                     ) : p.isGuest ? (
                       <span className="text-muted-foreground text-xs">Guest</span>
                     ) : null}
@@ -977,13 +977,13 @@ export function SessionCreateWizard({
               ) : null}
             </div>
             {unassigned.length > 0 ? (
-              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {unassigned.map((id) => {
                   const p = roster.find((x) => x.playerId === id);
                   if (!p) return null;
                   const picked = manualPick === id;
                   return (
-                    <li key={id}>
+                    <li key={id} className="min-w-0">
                       <button
                         type="button"
                         onClick={() => {
@@ -999,7 +999,7 @@ export function SessionCreateWizard({
                           setManualPick(null);
                         }}
                         className={cn(
-                          "relative flex min-h-[4rem] w-full flex-col gap-0.5 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                          "relative flex min-h-[4rem] min-w-0 w-full flex-col gap-0.5 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
                           "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                           "disabled:cursor-not-allowed disabled:opacity-50",
                           picked
@@ -1012,9 +1012,9 @@ export function SessionCreateWizard({
                             First
                           </span>
                         ) : null}
-                        <span className="pr-10 font-medium leading-tight">{p.displayName}</span>
+                        <span className="min-w-0 pr-10 break-words font-medium leading-tight">{p.displayName}</span>
                         {p.username ? (
-                          <span className="text-muted-foreground text-xs">@{p.username}</span>
+                          <span className="min-w-0 break-words text-muted-foreground text-xs">@{p.username}</span>
                         ) : p.isGuest ? (
                           <span className="text-muted-foreground text-xs">Guest</span>
                         ) : null}
@@ -1084,9 +1084,9 @@ export function SessionCreateWizard({
                               : "border-border bg-background hover:border-primary/40 hover:bg-muted/50",
                           )}
                         >
-                          <span className="font-medium leading-snug">{pA.displayName}</span>
+                          <span className="break-words font-medium leading-snug">{pA.displayName}</span>
                           {pA.username ? (
-                            <span className="text-muted-foreground block text-xs">@{pA.username}</span>
+                            <span className="block break-words text-muted-foreground text-xs">@{pA.username}</span>
                           ) : pA.isGuest ? (
                             <span className="text-muted-foreground block text-xs">Guest</span>
                           ) : null}
@@ -1105,9 +1105,9 @@ export function SessionCreateWizard({
                               : "border-border bg-background hover:border-primary/40 hover:bg-muted/50",
                           )}
                         >
-                          <span className="font-medium leading-snug">{pB.displayName}</span>
+                          <span className="break-words font-medium leading-snug">{pB.displayName}</span>
                           {pB.username ? (
-                            <span className="text-muted-foreground block text-xs">@{pB.username}</span>
+                            <span className="block break-words text-muted-foreground text-xs">@{pB.username}</span>
                           ) : pB.isGuest ? (
                             <span className="text-muted-foreground block text-xs">Guest</span>
                           ) : null}
@@ -1580,9 +1580,9 @@ export function SessionCreateWizard({
       {!hasPersistedSession ? (
         <footer className="mt-2 border-t border-border pt-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">Save a draft and finish later from this league.</p>
+            <p className="text-sm text-muted-foreground">Save the session and finish later from this league.</p>
             <Button type="button" disabled={pending} onClick={onSaveDraft} className="w-full shrink-0 sm:w-auto">
-              {pending ? "Saving…" : "Save draft"}
+              {pending ? "Saving…" : "Save session"}
             </Button>
           </div>
         </footer>

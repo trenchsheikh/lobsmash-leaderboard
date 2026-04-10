@@ -319,7 +319,7 @@ export function PlayerProfileAnalyticsModal({
           <DialogTitle className="font-heading text-lg">Player profile</DialogTitle>
           <DialogDescription className="text-xs">
             Self-reported style and global skill from completed sessions. League row includes
-            completed sessions only; drafts update live on the league page.
+            completed sessions only; live in-progress sessions on the league can update the preview.
           </DialogDescription>
         </DialogHeader>
 

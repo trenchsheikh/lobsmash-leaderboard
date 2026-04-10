@@ -19,8 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { DeleteLeagueButton } from "@/components/delete-league-button";
 import { LeaguePageTabs } from "@/components/league/league-page-tabs";
+import type { LeagueOverviewNextSessionPayload } from "@/components/league/league-overview-next-session";
 import { displayFirstName } from "@/lib/display-name";
 import { MAX_SESSION_COURTS, MIN_SESSION_COURTS } from "@/lib/session-courts";
+import { DEFAULT_SKILL } from "@/lib/rating";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +101,7 @@ export default async function LeaguePage({ params }: PageProps) {
         id,
         name,
         user_id,
+        playstyle,
         users ( username, avatar_url )
       )
     `,
@@ -128,6 +131,7 @@ export default async function LeaguePage({ params }: PageProps) {
         id: string;
         name: string;
         user_id: string | null;
+        playstyle: string | null;
         users: { username: string | null; avatar_url: string | null } | null;
       } | null;
       const un = p?.users?.username?.trim() ?? null;
@@ -138,6 +142,7 @@ export default async function LeaguePage({ params }: PageProps) {
         username: un,
         avatar_url: av,
         isGuest: !p?.user_id,
+        playstyle: p?.playstyle?.trim() ? p.playstyle : null,
       };
     }) ?? [];
 
@@ -300,6 +305,93 @@ export default async function LeaguePage({ params }: PageProps) {
     }
   }
 
+  const currentPlayerIdForOverview =
+    memberRowsEnriched.find((m) => m.user_id === user.id)?.player_id ?? null;
+
+  const upcomingCandidates = (sessionRows ?? [])
+    .filter((s) => String(s.status) !== "completed")
+    .sort((a, b) => {
+      const da = String(a.date);
+      const db = String(b.date);
+      if (da !== db) return da.localeCompare(db);
+      const ca = String(a.created_at ?? "");
+      const cb = String(b.created_at ?? "");
+      if (ca !== cb) return ca.localeCompare(cb);
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+  let overviewNextSession: LeagueOverviewNextSessionPayload | null = null;
+
+  if (upcomingCandidates.length > 0) {
+    if (!currentPlayerIdForOverview) {
+      overviewNextSession = { kind: "no_player" };
+    } else {
+      const upcomingIds = upcomingCandidates.map((s) => s.id as string);
+      const { data: teamRowsForPlayer, error: overviewTeamsErr } = await supabase
+        .from("session_teams")
+        .select("session_id, player_a, player_b")
+        .in("session_id", upcomingIds)
+        .or(`player_a.eq.${currentPlayerIdForOverview},player_b.eq.${currentPlayerIdForOverview}`);
+
+      if (overviewTeamsErr) {
+        console.error(
+          "league page overview session_teams",
+          overviewTeamsErr.message,
+          overviewTeamsErr,
+        );
+      }
+
+      const pairedSessionIdToPartner = new Map<string, string>();
+      for (const t of teamRowsForPlayer ?? []) {
+        const sid = t.session_id as string;
+        const pa = t.player_a as string;
+        const pb = t.player_b as string;
+        const partnerId = pa === currentPlayerIdForOverview ? pb : pa;
+        if (!pairedSessionIdToPartner.has(sid)) pairedSessionIdToPartner.set(sid, partnerId);
+      }
+
+      let chosen: (typeof upcomingCandidates)[number] | null = null;
+      let partnerId: string | null = null;
+      for (const s of upcomingCandidates) {
+        const sid = s.id as string;
+        const p = pairedSessionIdToPartner.get(sid);
+        if (p) {
+          chosen = s;
+          partnerId = p;
+          break;
+        }
+      }
+
+      if (chosen && partnerId) {
+        const r = rosterDisplay.find((x) => x.id === partnerId);
+        overviewNextSession = {
+          kind: "session",
+          sessionId: chosen.id as string,
+          date: String(chosen.date),
+          status: String(chosen.status),
+          partner: {
+            playerId: partnerId,
+            name: r?.name?.trim() || "Player",
+            username: r?.username ?? null,
+            avatar_url: r?.avatar_url ?? null,
+            isGuest: r ? r.isGuest : true,
+            playstyle: r?.playstyle ?? null,
+            skill: rosterSkillByPlayerId.get(partnerId) ?? DEFAULT_SKILL,
+          },
+        };
+      } else {
+        const first = upcomingCandidates[0];
+        overviewNextSession = {
+          kind: "session",
+          sessionId: first.id as string,
+          date: String(first.date),
+          status: String(first.status),
+          partner: null,
+        };
+      }
+    }
+  }
+
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
   const proto = h.get("x-forwarded-proto") ?? "https";
@@ -405,6 +497,7 @@ export default async function LeaguePage({ params }: PageProps) {
         pairLeaderboard={pairLeaderboard}
         newSessionWizard={newSessionWizard}
         pairPlayerMetaById={Object.fromEntries(pairPlayerMetaById)}
+        overviewNextSession={overviewNextSession}
       />
     </div>
   );

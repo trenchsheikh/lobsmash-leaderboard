@@ -18,7 +18,7 @@ export function DeleteSessionDraftButton({
   leagueId,
   sessionId,
   redirectHref,
-  label = "Delete draft",
+  label = "Delete session",
 }: {
   leagueId: string;
   sessionId: string;
@@ -37,7 +37,7 @@ export function DeleteSessionDraftButton({
         toast.error(res.error);
         return;
       }
-      toast.success("Draft deleted");
+      toast.success("Session deleted");
       setOpen(false);
       router.push(redirectHref);
       router.refresh();
@@ -57,9 +57,9 @@ export function DeleteSessionDraftButton({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent showCloseButton className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete this draft session?</DialogTitle>
+            <DialogTitle>Delete this session?</DialogTitle>
             <DialogDescription>
-              This removes the draft and any teams, games, or court 1 counts you entered. Completed
+              This removes the session and any teams, games, or court 1 counts you entered. Completed
               sessions are not affected. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
@@ -73,7 +73,7 @@ export function DeleteSessionDraftButton({
               Cancel
             </Button>
             <Button type="button" variant="destructive" disabled={pending} onClick={onConfirm}>
-              {pending ? "Deleting…" : "Delete draft"}
+              {pending ? "Deleting…" : "Delete session"}
             </Button>
           </DialogFooter>
         </DialogContent>

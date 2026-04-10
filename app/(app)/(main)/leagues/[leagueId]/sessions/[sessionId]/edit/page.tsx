@@ -211,7 +211,7 @@ export default async function EditSessionPage({ params }: PageProps) {
   });
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-8">
+    <div className="mx-auto flex max-w-3xl flex-col gap-8">
       <PageHeader
         title="Edit session"
         description={
@@ -224,7 +224,7 @@ export default async function EditSessionPage({ params }: PageProps) {
               {league.name}
             </Link>
             {session.status === "draft"
-              ? ". Save in the wizard; delete the draft only if you want to discard it."
+              ? ". Save in the wizard; delete the session only if you want to discard it."
               : ". Saving updates standings and padel levels for linked players."}
           </>
         }

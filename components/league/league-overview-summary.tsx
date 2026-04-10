@@ -34,6 +34,7 @@ export type LeagueOverviewSummaryProps = {
     username: string | null;
     avatar_url: string | null;
     isGuest: boolean;
+    playstyle?: string | null;
   }>;
   rosterSkillByPlayerId: Record<string, number>;
   leaderboard: LeaderboardRow[];
@@ -122,7 +123,7 @@ export function LeagueOverviewSummary({
           Roster skill and standings-based averages
           {hasDraftSessions && hasDraftSkillPreview ? (
             <span className="mt-1 block text-amber-800/95 dark:text-amber-400/90">
-              Average level includes draft skill preview until sessions complete.
+              Average level includes live skill preview until sessions complete.
             </span>
           ) : null}
         </CardDescription>

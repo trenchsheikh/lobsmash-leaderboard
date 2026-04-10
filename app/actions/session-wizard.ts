@@ -252,7 +252,7 @@ export async function deleteSessionDraft(leagueId: string, sessionId: string) {
     return { error: "Session not found." };
   }
   if (session.status !== "draft") {
-    return { error: "Only draft sessions can be deleted." };
+    return { error: "Only in-progress sessions can be deleted." };
   }
 
   const { error: dErr } = await supabase

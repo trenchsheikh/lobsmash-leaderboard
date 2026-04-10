@@ -93,7 +93,7 @@ export default async function NewSessionPage({ params }: PageProps) {
   const leagueResultsMode = sessionInputModeForFormat(leagueFormat);
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-8">
+    <div className="mx-auto flex max-w-3xl flex-col gap-8">
       <PageHeader
         title="New session"
         description={
@@ -104,7 +104,7 @@ export default async function NewSessionPage({ params }: PageProps) {
             >
               {league.name}
             </Link>
-            : set up teams and results. Save a draft anytime from the bottom of the form.
+            : set up teams and results. Save the session anytime from the bottom of the form.
           </>
         }
       />

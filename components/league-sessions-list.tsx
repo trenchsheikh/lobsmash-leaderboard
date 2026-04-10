@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { teamsCoverCourts } from "@/lib/session-readiness";
+import { sessionStatusDisplayLabel } from "@/lib/session-status-label";
 import { cn } from "@/lib/utils";
 
 export type LeagueSessionRow = {
@@ -13,7 +14,7 @@ export type LeagueSessionRow = {
   session_teams?: { count: number }[] | null;
 };
 
-function formatSessionDate(isoDate: string): string {
+export function formatSessionDate(isoDate: string): string {
   const d = new Date(`${isoDate}T12:00:00`);
   if (Number.isNaN(d.getTime())) return isoDate;
   return d.toLocaleDateString(undefined, {
@@ -41,12 +42,6 @@ function statusBadgeVariant(
   return "default";
 }
 
-function statusLabel(status: string): string {
-  if (status === "completed") return "Completed";
-  if (status === "draft") return "Draft";
-  return status;
-}
-
 function draftSetupHint(row: LeagueSessionRow): string | null {
   if (row.status !== "draft") return null;
   const pairCount = teamCountFromRow(row);
@@ -64,11 +59,14 @@ export function LeagueSessionsList({
   leagueId,
   sessions,
   sectionLabel = "Recent sessions",
+  showDraftSetupHints = false,
 }: {
   leagueId: string;
   sessions: LeagueSessionRow[];
   /** Shown above the feed (main “Sessions” title stays on the parent card). */
   sectionLabel?: string;
+  /** In-progress session setup hints (e.g. add scores); only for admins who can edit. */
+  showDraftSetupHints?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -101,7 +99,7 @@ export function LeagueSessionsList({
 
             const sessionLabel = `Session ${idx + 1}`;
             const dateLabel = formatSessionDate(s.date);
-            const draftHint = draftSetupHint(s);
+            const draftHint = showDraftSetupHints ? draftSetupHint(s) : null;
 
             return (
               <li key={s.id}>
@@ -111,7 +109,7 @@ export function LeagueSessionsList({
                     "group flex w-full min-h-[4.25rem] items-start justify-between gap-3 px-4 py-3.5 text-left transition-colors",
                     "hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   )}
-                  aria-label={`${sessionLabel}, ${dateLabel}, ${statusLabel(s.status)}. View session details.`}
+                  aria-label={`${sessionLabel}, ${dateLabel}, ${sessionStatusDisplayLabel(s.status)}. View session details.`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -121,7 +119,7 @@ export function LeagueSessionsList({
                       </span>
                       <span className="font-medium text-foreground">{dateLabel}</span>
                       <Badge variant={statusBadgeVariant(s.status)} className="text-xs capitalize">
-                        {statusLabel(s.status)}
+                        {sessionStatusDisplayLabel(s.status)}
                       </Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{metaParts.join(" · ")}</p>

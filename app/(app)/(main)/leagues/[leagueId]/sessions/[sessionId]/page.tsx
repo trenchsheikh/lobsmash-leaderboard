@@ -2,33 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { requireOnboarded } from "@/lib/auth/profile";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/lib/button-variants";
 import { PageHeader } from "@/components/page-header";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { DeleteGameButton } from "@/components/delete-game-button";
-import { CompleteSessionButton } from "@/components/complete-session-button";
 import { DeleteSessionDraftButton } from "@/components/delete-session-draft-button";
 import {
-  expectedChampShares,
-  expectedWinForSides,
-  formatPercent,
-  skillForPlayer,
-} from "@/lib/rating";
+  SessionDetailView,
+  type SessionDetailGameRow,
+} from "@/components/session/session-detail-view";
+import { isLeagueFormat, type LeagueFormat } from "@/lib/league-format";
+import { sortPairChampionship, type PairChampionshipRow } from "@/lib/leaderboard";
+import { displayFirstName } from "@/lib/display-name";
+import { expectedChampShares, skillForPlayer } from "@/lib/rating";
 import { teamsCoverCourts } from "@/lib/session-readiness";
 
 type PageProps = {
@@ -39,7 +23,7 @@ type PlayerRow = {
   id: string;
   name: string;
   user_id: string | null;
-  users: { username: string | null } | null;
+  users: { username: string | null; avatar_url: string | null } | null;
 };
 
 export default async function SessionPage({ params }: PageProps) {
@@ -57,6 +41,10 @@ export default async function SessionPage({ params }: PageProps) {
 
   if (!league) notFound();
 
+  const leagueFormat: LeagueFormat = isLeagueFormat(String(league.format))
+    ? league.format
+    : "americano";
+
   const { data: membership } = await supabase
     .from("league_members")
     .select("role")
@@ -66,8 +54,7 @@ export default async function SessionPage({ params }: PageProps) {
 
   if (!membership) notFound();
 
-  const canAdmin =
-    membership.role === "owner" || membership.role === "admin";
+  const canAdmin = membership.role === "owner" || membership.role === "admin";
 
   const { data: session, error: sErr } = await supabase
     .from("sessions")
@@ -75,11 +62,7 @@ export default async function SessionPage({ params }: PageProps) {
     .eq("id", sessionId)
     .maybeSingle();
 
-  if (
-    sErr ||
-    !session ||
-    String(session.league_id).toLowerCase() !== leagueId
-  ) {
+  if (sErr || !session || String(session.league_id).toLowerCase() !== leagueId) {
     notFound();
   }
 
@@ -127,7 +110,8 @@ export default async function SessionPage({ params }: PageProps) {
   const myPlayerId = myPlayer?.id as string | undefined;
   const isParticipant = Boolean(myPlayerId && sessionPlayerIds.has(myPlayerId));
 
-  const numCourts = typeof session.num_courts === "number" && session.num_courts >= 1 ? session.num_courts : 1;
+  const numCourts =
+    typeof session.num_courts === "number" && session.num_courts >= 1 ? session.num_courts : 1;
   const teamPairCount = sessionTeamRows.length;
   const hasTeams = teamPairCount > 0;
   const teamsReady = teamsCoverCourts(numCourts, teamPairCount);
@@ -146,13 +130,24 @@ export default async function SessionPage({ params }: PageProps) {
     playerIds.size > 0
       ? await supabase
           .from("players")
-          .select("id, name, user_id, users ( username )")
+          .select("id, name, user_id, users ( username, avatar_url )")
           .in("id", [...playerIds])
       : { data: [] as PlayerRow[] };
 
-  const playerById = new Map(
-    (nameRows ?? []).map((p) => [p.id, p as PlayerRow]),
-  );
+  const playerById = new Map((nameRows ?? []).map((p) => [p.id, p as PlayerRow]));
+
+  const playersById: Record<
+    string,
+    { name: string; username: string | null; avatar_url: string | null; isGuest: boolean }
+  > = {};
+  for (const [id, p] of playerById.entries()) {
+    playersById[id] = {
+      name: p.name,
+      username: p.users?.username?.trim() ?? null,
+      avatar_url: p.users?.avatar_url?.trim() ?? null,
+      isGuest: !p.user_id,
+    };
+  }
 
   function formatTeam(ids: string[]) {
     return ids
@@ -172,9 +167,14 @@ export default async function SessionPage({ params }: PageProps) {
   const maxCourt1Wins = court1WinRows.length
     ? Math.max(...court1WinRows.map((r) => r.wins as number))
     : 0;
-  const court1LeaderLabels =
+  const court1LeaderPairs =
     maxCourt1Wins > 0
-      ? court1WinRows.filter((r) => (r.wins as number) === maxCourt1Wins).map((r) => formatTeam([r.player_low, r.player_high]))
+      ? court1WinRows
+          .filter((r) => (r.wins as number) === maxCourt1Wins)
+          .map((r) => ({
+            playerA: r.player_low as string,
+            playerB: r.player_high as string,
+          }))
       : [];
 
   const champTableRows =
@@ -183,9 +183,7 @@ export default async function SessionPage({ params }: PageProps) {
           const pairSkills = sessionTeamRows.map((t) => {
             const pa = t.player_a as string;
             const pb = t.player_b as string;
-            return (
-              (skillForPlayer(pa, skillsByPlayerId) + skillForPlayer(pb, skillsByPlayerId)) / 2
-            );
+            return (skillForPlayer(pa, skillsByPlayerId) + skillForPlayer(pb, skillsByPlayerId)) / 2;
           });
           const shares = expectedChampShares(pairSkills);
           return sessionTeamRows.map((t, i) => {
@@ -197,7 +195,8 @@ export default async function SessionPage({ params }: PageProps) {
               court1PairWins?.find((r) => r.player_low === lo && r.player_high === hi)?.wins ?? 0;
             return {
               key: `${lo}-${hi}-${i}`,
-              label: formatTeam([pa, pb]),
+              playerA: pa,
+              playerB: pb,
               wins: w,
               share: shares[i] ?? 0,
             };
@@ -205,23 +204,71 @@ export default async function SessionPage({ params }: PageProps) {
         })()
       : null;
 
+  let pairLeaderboard: PairChampionshipRow[] = [];
+  if (isChampOnly) {
+    const { data: pairStatsRows } = await supabase
+      .from("pair_championship_stats")
+      .select("player_low, player_high, championship_wins, sessions_played")
+      .eq("league_id", leagueId);
+
+    const pairStatsPlayerIds = new Set<string>();
+    for (const r of pairStatsRows ?? []) {
+      pairStatsPlayerIds.add(r.player_low as string);
+      pairStatsPlayerIds.add(r.player_high as string);
+    }
+
+    const { data: pairNameRows } =
+      pairStatsPlayerIds.size > 0
+        ? await supabase
+            .from("players")
+            .select("id, name, users ( username, avatar_url )")
+            .in("id", [...pairStatsPlayerIds])
+        : { data: [] as { id: string; name: string; users: unknown }[] | null };
+
+    const pairStatMetaById = new Map<
+      string,
+      { name: string; username: string | null; avatar_url: string | null }
+    >();
+    for (const p of pairNameRows ?? []) {
+      const u = p.users as { username: string | null; avatar_url: string | null } | null;
+      pairStatMetaById.set(p.id as string, {
+        name: (p.name as string)?.trim() || "Player",
+        username: u?.username?.trim() ?? null,
+        avatar_url: u?.avatar_url?.trim() ?? null,
+      });
+    }
+
+    const pairLeaderboardRaw: PairChampionshipRow[] =
+      pairStatsRows?.map((row) => {
+        const pl = row.player_low as string;
+        const ph = row.player_high as string;
+        const n1 = pairStatMetaById.get(pl)?.name ?? "Player";
+        const n2 = pairStatMetaById.get(ph)?.name ?? "Player";
+        const sorted = [n1, n2].sort((a, b) => a.localeCompare(b));
+        const label = `${displayFirstName(sorted[0])} & ${displayFirstName(sorted[1])}`;
+        return {
+          player_low: pl,
+          player_high: ph,
+          label,
+          championship_wins: row.championship_wins as number,
+          sessions_played: (row.sessions_played as number) ?? 0,
+        };
+      }) ?? [];
+
+    pairLeaderboard = sortPairChampionship(pairLeaderboardRaw);
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
         title={`Session · ${session.date}`}
         description={
-          <>
-            <Link href={`/leagues/${leagueId}`} className="hover:underline">
-              {league.name}
-            </Link>
-            <span className="mx-1.5 text-muted-foreground">·</span>
-            <Badge variant="outline" className="align-middle capitalize">
-              {session.status}
-            </Badge>
-            <span className="ml-2 text-xs text-muted-foreground">
-              {(session.num_courts as number) ?? "—"} courts · {session.input_mode ?? "—"}
-            </span>
-          </>
+          <Link
+            href={`/leagues/${leagueId}`}
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            {league.name}
+          </Link>
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -253,239 +300,32 @@ export default async function SessionPage({ params }: PageProps) {
         }
       />
 
-      {isParticipant ? (
-        <div className="rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
-          <p className="font-medium text-foreground">You&apos;re playing this session</p>
-          <p className="mt-1 text-muted-foreground">
-            {canAdmin
-              ? "You can edit teams and scores from Edit session, then mark complete when results are final."
-              : "League admins enter scores and mark the session complete. You can review teams and results here."}
-          </p>
-        </div>
-      ) : null}
-
-      {!isParticipant && !canAdmin ? (
-        <p className="text-sm text-muted-foreground">
-          You&apos;re viewing this session as a league member. Only admins can change teams or scores.
-        </p>
-      ) : null}
-
-      {canAdmin && isDraft ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Finalize session</CardTitle>
-            <CardDescription>
-              {!hasTeams || !teamsReady ? (
-                <>
-                  Save teams for every court in the session editor first. This session needs{" "}
-                  <span className="font-medium text-foreground">{numCourts * 2}</span> pairs for{" "}
-                  <span className="font-medium text-foreground">{numCourts}</span> court
-                  {numCourts === 1 ? "" : "s"} ({teamPairCount} pair{teamPairCount === 1 ? "" : "s"} saved
-                  {hasTeams ? "" : " — none yet"}).
-                </>
-              ) : isChampOnly ? (
-                <>
-                  Save court 1 win counts from the session wizard, then mark complete to update the leaderboard.
-                </>
-              ) : (
-                <>
-                  Save games from the session wizard first. When results are correct, mark the session complete to
-                  update the leaderboard.
-                </>
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {!hasTeams || !teamsReady ? (
-              <Link
-                href={`/leagues/${leagueId}/sessions/${sessionId}/edit`}
-                className={buttonVariants({ variant: "default", size: "default" })}
-              >
-                Edit session
-              </Link>
-            ) : (
-              <CompleteSessionButton leagueId={leagueId} sessionId={sessionId} />
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {!isChampOnly && sessionTeamRows.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Teams</CardTitle>
-            <CardDescription>
-              Pairs saved for this session. Add game scores in the session editor when ready.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {sessionTeamRows.map((t, i) => {
-                const pa = t.player_a as string;
-                const pb = t.player_b as string;
-                return (
-                  <li
-                    key={`${pa}-${pb}-${i}`}
-                    className="rounded-md border border-border/80 px-3 py-2 text-sm"
-                  >
-                    <span className="font-medium">Pair {i + 1}</span>
-                    <span className="mt-1 block text-muted-foreground">{formatTeam([pa, pb])}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {isChampOnly ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Court 1 wins</CardTitle>
-            <CardDescription>
-              Championship court only — wins on other courts are not recorded. Scores are not stored. Exp Win (levels)
-              uses your global padel ratings (softmax over pairs in this session).
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {court1LeaderLabels.length > 0 ? (
-              <p className="text-sm">
-                <span className="font-medium text-foreground">Session leader</span>
-                {court1LeaderLabels.length === 1 ? "" : "s"}: {court1LeaderLabels.join(" · ")} ({maxCourt1Wins} win
-                {maxCourt1Wins === 1 ? "" : "s"} on court 1)
-              </p>
-            ) : null}
-            {!court1WinRows.length && (!champTableRows || champTableRows.length === 0) ? (
-              <p className="text-sm text-muted-foreground">No court 1 wins logged yet.</p>
-            ) : champTableRows && champTableRows.length > 0 ? (
-              <div className="w-full overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Team</TableHead>
-                      <TableHead className="text-right">Exp Win (levels)</TableHead>
-                      <TableHead className="text-right">Wins on court 1</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {champTableRows.map((row) => (
-                      <TableRow key={row.key}>
-                        <TableCell className="max-w-[280px] text-sm">{row.label}</TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {formatPercent(row.share, 1)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">{row.wins}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <div className="w-full overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Team</TableHead>
-                      <TableHead className="text-right">Wins on court 1</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {court1WinRows.map((r) => (
-                      <TableRow key={`${r.player_low}-${r.player_high}`}>
-                        <TableCell className="max-w-[280px] text-sm">
-                          {formatTeam([r.player_low, r.player_high])}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">{r.wins}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Games</CardTitle>
-          <CardDescription>
-            {isChampOnly
-              ? "Per-game scores are not used in championship court only mode. Legacy rows may appear if this session was recorded before that change."
-              : "Courts, teams, and results for this session. Side odds use global padel levels."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!games?.length ? (
-            <p className="text-sm text-muted-foreground">
-              {isChampOnly ? "No game rows stored for this session." : "No games logged yet."}
-            </p>
-          ) : (
-            <div className="w-full overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Court</TableHead>
-                    <TableHead>Team A</TableHead>
-                    <TableHead>Team B</TableHead>
-                    <TableHead>Side odds (levels)</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Winner</TableHead>
-                    {canAdmin && isDraft ? (
-                      <TableHead className="text-right">Actions</TableHead>
-                    ) : null}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {games.map((g) => {
-                    const ta = (g.team_a_players as string[]) ?? [];
-                    const tb = (g.team_b_players as string[]) ?? [];
-                    const winEst =
-                      ta.length >= 2 && tb.length >= 2
-                        ? expectedWinForSides(ta, tb, skillsByPlayerId)
-                        : null;
-                    return (
-                    <TableRow key={g.id}>
-                      <TableCell>{g.court_number}</TableCell>
-                      <TableCell className="max-w-[220px] text-sm">
-                        {formatTeam(ta)}
-                      </TableCell>
-                      <TableCell className="max-w-[220px] text-sm">
-                        {formatTeam(tb)}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] text-xs text-muted-foreground">
-                        {winEst ? (
-                          <>
-                            A {formatPercent(winEst.teamA, 0)} · B {formatPercent(winEst.teamB, 0)}
-                          </>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {g.team_a_score} – {g.team_b_score}
-                      </TableCell>
-                      <TableCell className="capitalize">
-                        {(g.winner as string)?.replace("_", " ")}
-                      </TableCell>
-                      {canAdmin && isDraft ? (
-                        <TableCell className="text-right">
-                          <DeleteGameButton
-                            leagueId={leagueId}
-                            sessionId={sessionId}
-                            gameId={g.id as string}
-                          />
-                        </TableCell>
-                      ) : null}
-                    </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <SessionDetailView
+        leagueId={leagueId}
+        sessionId={sessionId}
+        leagueFormat={leagueFormat}
+        sessionDate={session.date as string}
+        sessionStatus={session.status as string}
+        numCourts={numCourts}
+        inputMode={session.input_mode as string | null}
+        canAdmin={canAdmin}
+        isParticipant={isParticipant}
+        isDraft={isDraft}
+        isChampOnly={isChampOnly}
+        hasTeams={hasTeams}
+        teamsReady={teamsReady}
+        teamPairCount={teamPairCount}
+        sessionTeamRows={sessionTeamRows as { player_a: string; player_b: string; sort_order: number }[]}
+        games={(games ?? []) as SessionDetailGameRow[]}
+        champTableRows={champTableRows}
+        court1WinRows={court1WinRows as { player_low: string; player_high: string; wins: number }[]}
+        court1LeaderPairs={court1LeaderPairs}
+        maxCourt1Wins={maxCourt1Wins}
+        pairLeaderboard={pairLeaderboard}
+        playersById={playersById}
+        skillsByPlayerId={skillsByPlayerId}
+        myPlayerId={myPlayerId}
+      />
     </div>
   );
 }
