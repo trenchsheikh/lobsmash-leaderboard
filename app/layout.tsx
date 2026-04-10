@@ -22,6 +22,22 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "LobSmash",
   description: "League sessions, games, and leaderboards",
+  icons: {
+    icon: "/lobsmash-logo.png",
+    apple: "/lobsmash-logo.png",
+    shortcut: "/lobsmash-logo.png",
+  },
+  openGraph: {
+    title: "LobSmash",
+    description: "League sessions, games, and leaderboards",
+    images: ["/lobsmash-logo.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LobSmash",
+    description: "League sessions, games, and leaderboards",
+    images: ["/lobsmash-logo.png"],
+  },
 };
 
 export const viewport: Viewport = {
