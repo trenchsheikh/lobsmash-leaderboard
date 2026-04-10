@@ -1,5 +1,18 @@
 import Image from "next/image";
 
+/** Very subtle noise — barely visible, avoids banding without a gritty look. */
+function FilmGrainOverlay() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 opacity-[0.035] mix-blend-soft-light"
+      aria-hidden
+      style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+      }}
+    />
+  );
+}
+
 export default function AuthLayout({
   children,
 }: {
@@ -7,39 +20,50 @@ export default function AuthLayout({
 }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
-      <aside className="relative order-1 flex min-h-0 flex-1 flex-col justify-end lg:min-h-dvh lg:w-1/2 lg:max-w-[50vw]">
-        <div className="relative min-h-[32vh] w-full flex-1 lg:absolute lg:inset-0 lg:min-h-0">
+      <aside className="relative order-1 min-h-[38vh] w-full flex-1 lg:min-h-dvh lg:w-1/2 lg:max-w-[50vw]">
+        <div className="absolute inset-0">
           <Image
             src="/signin-page.png"
             alt="Padel on court — LobSmash"
             fill
             priority
-            className="object-cover object-[center_30%]"
+            quality={92}
+            className="object-cover object-[center_28%] contrast-[1.02] saturate-[1.03]"
             sizes="(max-width: 1024px) 100vw, 50vw"
           />
           <div
-            className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/40"
+            className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/20"
             aria-hidden
           />
+          <div
+            className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/25"
+            aria-hidden
+          />
+          <FilmGrainOverlay />
         </div>
 
-        <div className="relative z-10 flex flex-col gap-3 p-6 pb-8 text-white sm:p-8 sm:pb-10 lg:absolute lg:bottom-0 lg:right-0 lg:max-w-md lg:items-end lg:text-right">
-          <Image
-            src="/lobsmash-logo-removebg-preview.png"
-            alt="LobSmash"
-            width={160}
-            height={48}
-            className="h-9 w-auto drop-shadow-md sm:h-10 lg:ml-auto"
-          />
-          <p className="text-pretty text-sm font-medium leading-relaxed text-white/95 drop-shadow-md sm:text-base">
-            The lob gives you room to breathe; the smash is where you mean it. LobSmash is that rhythm—patience,
-            then conviction—played together on court.
-          </p>
+        <div className="pointer-events-none relative z-10 flex min-h-[38vh] flex-col justify-end p-6 pb-8 sm:p-8 sm:pb-10 lg:min-h-dvh lg:pb-12">
+          <div className="pointer-events-auto flex max-w-sm flex-col items-start gap-3 text-left">
+            <Image
+              src="/lobsmash-logo-removebg-preview.png"
+              alt="LobSmash"
+              width={500}
+              height={500}
+              className="h-10 w-auto max-w-[200px] object-contain object-left drop-shadow-md sm:h-11"
+            />
+            <p className="text-pretty text-sm font-medium leading-snug text-white/90 drop-shadow-md sm:text-base">
+              One place for the leagues you run, the sessions you play, and the standings everyone can trust.
+            </p>
+          </div>
         </div>
       </aside>
 
-      <main className="relative order-2 flex flex-1 flex-col justify-center px-4 py-8 sm:px-6 sm:py-10 lg:w-1/2 lg:px-10 lg:py-12">
-        <div className="mx-auto w-full max-w-md">{children}</div>
+      <main className="relative order-2 flex min-h-0 flex-1 flex-col justify-center overflow-hidden px-4 py-8 sm:px-6 sm:py-10 lg:w-1/2 lg:px-10 lg:py-12">
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-navy/30 via-brand-navy/18 via-40% to-brand-lime/14 dark:from-brand-navy/55 dark:via-brand-navy/32 dark:via-45% dark:to-brand-lime/10"
+          aria-hidden
+        />
+        <div className="relative z-10 mx-auto w-full max-w-md">{children}</div>
       </main>
     </div>
   );
