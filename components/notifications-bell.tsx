@@ -9,6 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -155,7 +156,7 @@ export function NotificationsBell() {
             ) : (
               <div className="flex flex-col gap-4">
                 {friends.length > 0 ? (
-                  <section>
+                  <DropdownMenuGroup>
                     <DropdownMenuLabel className="px-2 py-1.5">Friend requests</DropdownMenuLabel>
                     <ul className="flex flex-col gap-2">
                       {friends.map((f) => (
@@ -231,7 +232,7 @@ export function NotificationsBell() {
                         </li>
                       ))}
                     </ul>
-                  </section>
+                  </DropdownMenuGroup>
                 ) : null}
 
                 {friends.length > 0 && (sessionPartner.length > 0 || reminders.length > 0) ? (
@@ -239,7 +240,7 @@ export function NotificationsBell() {
                 ) : null}
 
                 {sessionPartner.length > 0 ? (
-                  <section>
+                  <DropdownMenuGroup>
                     <DropdownMenuLabel className="px-2 py-1.5">Sessions</DropdownMenuLabel>
                     <ul className="flex flex-col gap-2">
                       {sessionPartner.map((n) => {
@@ -283,7 +284,7 @@ export function NotificationsBell() {
                         );
                       })}
                     </ul>
-                  </section>
+                  </DropdownMenuGroup>
                 ) : null}
 
                 {sessionPartner.length > 0 && reminders.length > 0 ? (
@@ -291,7 +292,7 @@ export function NotificationsBell() {
                 ) : null}
 
                 {reminders.length > 0 ? (
-                  <section>
+                  <DropdownMenuGroup>
                     <DropdownMenuLabel className="px-2 py-1.5">Reminders</DropdownMenuLabel>
                     <ul className="flex flex-col gap-2">
                       {reminders.map((r) => {
@@ -319,7 +320,7 @@ export function NotificationsBell() {
                         );
                       })}
                     </ul>
-                  </section>
+                  </DropdownMenuGroup>
                 ) : null}
               </div>
             )}
