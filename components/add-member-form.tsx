@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, Loader2, UserPlus } from "lucide-react";
+import { Heart, UserPlus } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import {
   addMemberByUserId,
@@ -57,7 +58,7 @@ function UserRow({
       </div>
       <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-secondary px-2.5 py-1.5 text-xs font-medium text-secondary-foreground">
         {pending ? (
-          <Loader2 className="size-4 animate-spin" aria-hidden />
+          <Spinner className="size-4" aria-hidden />
         ) : (
           <UserPlus className="size-4" aria-hidden />
         )}
@@ -175,7 +176,7 @@ export function AddMemberForm({ leagueId }: { leagueId: string }) {
         </p>
         {friendsLoading ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
+            <Spinner className="size-3.5" />
             Loading friends…
           </div>
         ) : friends.length === 0 ? (

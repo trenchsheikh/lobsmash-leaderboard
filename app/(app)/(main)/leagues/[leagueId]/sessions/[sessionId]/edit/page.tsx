@@ -15,6 +15,7 @@ import {
   type GameRowState,
 } from "@/components/session-create-wizard";
 import { DeleteSessionDraftButton } from "@/components/delete-session-draft-button";
+import { MAX_SESSION_COURTS, MIN_SESSION_COURTS } from "@/lib/session-courts";
 
 type PageProps = {
   params: Promise<{ leagueId: string; sessionId: string }>;
@@ -146,12 +147,12 @@ export default async function EditSessionPage({ params }: PageProps) {
 
   const lc = (league as { last_court_count?: number | null }).last_court_count;
   const defaultCourts =
-    typeof lc === "number" && lc >= 1 && lc <= 12 ? lc : 4;
+    typeof lc === "number" && lc >= MIN_SESSION_COURTS && lc <= MAX_SESSION_COURTS ? lc : 4;
 
   const initialNumCourts =
     typeof session.num_courts === "number" &&
-    session.num_courts >= 1 &&
-    session.num_courts <= 12
+    session.num_courts >= MIN_SESSION_COURTS &&
+    session.num_courts <= MAX_SESSION_COURTS
       ? session.num_courts
       : defaultCourts;
 
@@ -253,7 +254,6 @@ export default async function EditSessionPage({ params }: PageProps) {
       <div className="flex flex-wrap items-center gap-3">
         <Link
           href={`/leagues/${leagueId}/sessions/${sessionId}`}
-          prefetch={false}
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           Back to session

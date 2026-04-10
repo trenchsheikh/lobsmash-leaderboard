@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath, revalidateTag } from "next/cache";
+import { friendsPageDataTag } from "@/lib/cache-tags";
 import { requireOnboarded } from "@/lib/auth/profile";
 import type { FriendUserBrief } from "@/lib/friends-types";
 import { normalizeUsername } from "@/lib/username";
@@ -9,6 +10,14 @@ export type { FriendUserBrief, FriendshipListItem } from "@/lib/friends-types";
 
 function canonicalPair(me: string, other: string): [string, string] {
   return me < other ? [me, other] : [other, me];
+}
+
+function revalidateFriendsForUsers(...userIds: string[]) {
+  revalidatePath("/friends");
+  for (const id of new Set(userIds)) {
+    revalidateTag(friendsPageDataTag(id), "max");
+  }
+  refresh();
 }
 
 export async function searchUsersForFriendship(query: string) {
@@ -68,7 +77,7 @@ export async function sendFriendRequestByUsername(usernameRaw: string) {
     return { error: error.message };
   }
 
-  revalidatePath("/friends");
+  revalidateFriendsForUsers(user.id, target);
   return { ok: true };
 }
 
@@ -92,12 +101,21 @@ export async function sendFriendRequestToUserId(targetId: string) {
     return { error: error.message };
   }
 
-  revalidatePath("/friends");
+  revalidateFriendsForUsers(user.id, targetId);
   return { ok: true };
 }
 
 export async function acceptFriendRequest(friendshipId: string) {
-  const { supabase, user } = await requireOnboarded();
+  const { supabase } = await requireOnboarded();
+
+  const { data: row, error: selErr } = await supabase
+    .from("friendships")
+    .select("user_a, user_b")
+    .eq("id", friendshipId)
+    .maybeSingle();
+
+  if (selErr) return { error: selErr.message };
+  if (!row) return { error: "Request not found." };
 
   const { error } = await supabase
     .from("friendships")
@@ -107,18 +125,27 @@ export async function acceptFriendRequest(friendshipId: string) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/friends");
+  revalidateFriendsForUsers(row.user_a as string, row.user_b as string);
   return { ok: true };
 }
 
 export async function declineOrCancelFriendRequest(friendshipId: string) {
   const { supabase } = await requireOnboarded();
 
+  const { data: row, error: selErr } = await supabase
+    .from("friendships")
+    .select("user_a, user_b")
+    .eq("id", friendshipId)
+    .maybeSingle();
+
+  if (selErr) return { error: selErr.message };
+  if (!row) return { error: "Request not found." };
+
   const { error } = await supabase.from("friendships").delete().eq("id", friendshipId);
 
   if (error) return { error: error.message };
 
-  revalidatePath("/friends");
+  revalidateFriendsForUsers(row.user_a as string, row.user_b as string);
   return { ok: true };
 }
 

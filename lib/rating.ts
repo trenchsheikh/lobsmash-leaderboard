@@ -8,7 +8,7 @@ export const CHAMP_TEMPERATURE = 200;
 export const MARGIN_BETA = 0.15;
 export const MARGIN_CAP = 8;
 
-/** Internal skill band mapped to Playtomic-style 0–7 (half steps). */
+/** Internal skill band mapped to Playtomic-style 0–7 (display rounded to 2 decimals). */
 export const DISPLAY_SKILL_MIN = 800;
 export const DISPLAY_SKILL_MAX = 2200;
 
@@ -63,7 +63,7 @@ export function skillToDisplayLevel(skill: number): number {
   const t =
     (skill - DISPLAY_SKILL_MIN) / (DISPLAY_SKILL_MAX - DISPLAY_SKILL_MIN);
   const raw = Math.max(0, Math.min(1, t)) * 7;
-  return Math.round(raw * 2) / 2;
+  return Math.round(raw * 100) / 100;
 }
 
 export function formatPercent(probability: number, fractionDigits = 0): string {
@@ -72,7 +72,13 @@ export function formatPercent(probability: number, fractionDigits = 0): string {
   return `${p.toFixed(fractionDigits)}%`;
 }
 
+/** String for UI: up to 2 decimals; if hundredths digit is 0, show one decimal (e.g. 3.5 not 3.50). */
 export function formatDisplayLevel(skill: number): string {
+  if (!Number.isFinite(skill)) return "—";
   const lv = skillToDisplayLevel(skill);
-  return lv.toFixed(1);
+  const cents = Math.round(lv * 100);
+  if (cents % 10 === 0) {
+    return (cents / 100).toFixed(1);
+  }
+  return (cents / 100).toFixed(2);
 }

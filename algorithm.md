@@ -30,12 +30,12 @@ Constants are shared between:
 | `MARGIN_BETA`   | 0.15  | Optional blowout scaling (full mode only)   |
 | `MARGIN_CAP`    | 8     | Score diff cap for margin factor            |
 
-**Display level (0–7 in 0.5 steps)** maps linearly from internal skill:
+**Display level (0–7, linear from internal skill, rounded to 2 decimals for display)**:
 
 - `DISPLAY_SKILL_MIN` = 800 → level 0  
 - `DISPLAY_SKILL_MAX` = 2200 → level 7  
 
-See `skillToDisplayLevel()` in `lib/rating.ts`.
+See `skillToDisplayLevel()` and `formatDisplayLevel()` in `lib/rating.ts` (UI omits the second decimal when it is 0, e.g. `3.5` not `3.50`).
 
 ---
 

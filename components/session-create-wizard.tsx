@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import {
   averageTeamSkill,
@@ -27,6 +28,11 @@ import {
   formatPercent,
   skillForPlayer,
 } from "@/lib/rating";
+import {
+  MAX_SESSION_COURTS,
+  MIN_SESSION_COURTS,
+  SESSION_GAME_COURT_RADIO_MAX,
+} from "@/lib/session-courts";
 import { Check, Plus, Shuffle, Trash2 } from "lucide-react";
 
 export type RosterPlayer = {
@@ -37,15 +43,7 @@ export type RosterPlayer = {
 };
 
 function clampCourts(n: number): number {
-  return Math.min(12, Math.max(1, Math.round(n)));
-}
-
-function courtsFromString(s: string, fallback: number): number {
-  const trimmed = s.trim();
-  if (trimmed === "") return fallback;
-  const n = parseInt(trimmed, 10);
-  if (!Number.isFinite(n)) return fallback;
-  return clampCourts(n);
+  return Math.min(MAX_SESSION_COURTS, Math.max(MIN_SESSION_COURTS, Math.round(n)));
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -57,9 +55,10 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function labelForPlayer(p: RosterPlayer): string {
-  if (p.username) return `@${p.username}`;
-  return `${p.displayName}${p.isGuest ? " (guest)" : ""}`;
+function truncateLabel(s: string, max = 56): string {
+  const t = s.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
 }
 
 export type GameRowState = {
@@ -70,6 +69,33 @@ export type GameRowState = {
   scoreBStr: string;
   winner: "team_a" | "team_b";
 };
+
+function serializeEphemeralDraftSnapshot(input: {
+  date: string;
+  courtsInput: string;
+  attendingIds: string[];
+  teams: [string, string][];
+  gameRows: GameRowState[];
+  champCourt1WinsStr: string[];
+  teamMode: "spin" | "manual";
+  manualPick: string | null;
+  playerSwapPick: { teamIdx: number; slot: 0 | 1 } | null;
+}) {
+  const teamsNorm = input.teams
+    .map(([a, b]) => (a < b ? ([a, b] as [string, string]) : ([b, a] as [string, string])))
+    .sort((x, y) => `${x[0]}\0${x[1]}`.localeCompare(`${y[0]}\0${y[1]}`));
+  return JSON.stringify({
+    date: input.date,
+    courtsInput: input.courtsInput,
+    attendingIds: [...input.attendingIds].sort(),
+    teams: teamsNorm,
+    gameRows: input.gameRows,
+    champCourt1WinsStr: input.champCourt1WinsStr,
+    teamMode: input.teamMode,
+    manualPick: input.manualPick,
+    playerSwapPick: input.playerSwapPick,
+  });
+}
 
 export function SessionCreateWizard({
   leagueId,
@@ -85,6 +111,8 @@ export function SessionCreateWizard({
   initialGameRows,
   initialAttendingIds,
   sessionCompletionStatus = "draft",
+  onFirstDraftSaved,
+  onDraftDirtyChange,
 }: {
   leagueId: string;
   /** `null` on /sessions/new until Save draft; then navigate to edit with a real id. */
@@ -104,6 +132,10 @@ export function SessionCreateWizard({
   initialAttendingIds?: string[];
   /** Completed sessions hide “Complete session”; saves still update leaderboard and padel levels. */
   sessionCompletionStatus?: "draft" | "completed";
+  /** When set and `sessionId` is null, first successful Save draft calls this instead of navigating to the editor. */
+  onFirstDraftSaved?: (payload: { sessionId: string; date: string }) => void;
+  /** When `sessionId` is null, reports whether the ephemeral draft differs from the post-mount baseline. */
+  onDraftDirtyChange?: (dirty: boolean) => void;
 }) {
   const router = useRouter();
   const isCompletedSession = sessionCompletionStatus === "completed";
@@ -113,8 +145,11 @@ export function SessionCreateWizard({
   const [date, setDate] = useState(
     () => initialDate ?? new Date().toISOString().slice(0, 10),
   );
+  const [committedNumCourts, setCommittedNumCourts] = useState(() =>
+    clampCourts(initialNumCourts ?? defaultCourts),
+  );
   const [courtsInput, setCourtsInput] = useState(() =>
-    String(initialNumCourts ?? defaultCourts),
+    String(clampCourts(initialNumCourts ?? defaultCourts)),
   );
   const inputMode = leagueResultsMode;
 
@@ -142,10 +177,13 @@ export function SessionCreateWizard({
   );
   const [champCourt1WinsStr, setChampCourt1WinsStr] = useState<string[]>([]);
 
-  const numCourts = useMemo(
-    () => courtsFromString(courtsInput, defaultCourts),
-    [courtsInput, defaultCourts],
-  );
+  const numCourts = useMemo(() => {
+    const t = courtsInput.trim();
+    if (t === "") return committedNumCourts;
+    const n = parseInt(t, 10);
+    if (!Number.isFinite(n)) return committedNumCourts;
+    return clampCourts(n);
+  }, [courtsInput, committedNumCourts]);
 
   const effectiveCourts = numCourts;
 
@@ -169,12 +207,29 @@ export function SessionCreateWizard({
   }, [maxSelectablePlayers]);
 
   useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      setGameRows((rows) => {
+        let changed = false;
+        const next = rows.map((r) => {
+          const c = Math.min(r.courtNumber, effectiveCourts);
+          if (c !== r.courtNumber) changed = true;
+          return { ...r, courtNumber: c };
+        });
+        return changed ? next : rows;
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [effectiveCourts]);
+
+  useEffect(() => {
     const allowed = new Set(attendingIds);
     setTeams((prev) => prev.filter(([a, b]) => allowed.has(a) && allowed.has(b)));
   }, [attendingIds]);
 
   useEffect(() => {
-    setCourtsInput(String(initialNumCourts ?? defaultCourts));
+    const v = clampCourts(initialNumCourts ?? defaultCourts);
+    setCourtsInput(String(v));
+    setCommittedNumCourts(v);
   }, [initialNumCourts, defaultCourts]);
 
   useEffect(() => {
@@ -189,6 +244,57 @@ export function SessionCreateWizard({
       });
     });
   }, [initialCourt1PairWins, teams]);
+
+  const ephemeralDraftSnapshotRef = useRef<string | null>(null);
+  const [ephemeralDirtyBaselineReady, setEphemeralDirtyBaselineReady] = useState(false);
+
+  useEffect(() => {
+    if (!onDraftDirtyChange || hasPersistedSession) {
+      ephemeralDraftSnapshotRef.current = null;
+      setEphemeralDirtyBaselineReady(false);
+      onDraftDirtyChange?.(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      setEphemeralDirtyBaselineReady(true);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [onDraftDirtyChange, hasPersistedSession]);
+
+  useEffect(() => {
+    if (!onDraftDirtyChange || hasPersistedSession) return;
+    if (!ephemeralDirtyBaselineReady) return;
+    const s = serializeEphemeralDraftSnapshot({
+      date,
+      courtsInput,
+      attendingIds,
+      teams,
+      gameRows,
+      champCourt1WinsStr,
+      teamMode,
+      manualPick,
+      playerSwapPick,
+    });
+    if (ephemeralDraftSnapshotRef.current === null) {
+      ephemeralDraftSnapshotRef.current = s;
+      onDraftDirtyChange(false);
+      return;
+    }
+    onDraftDirtyChange(s !== ephemeralDraftSnapshotRef.current);
+  }, [
+    ephemeralDirtyBaselineReady,
+    onDraftDirtyChange,
+    hasPersistedSession,
+    date,
+    courtsInput,
+    attendingIds,
+    teams,
+    gameRows,
+    champCourt1WinsStr,
+    teamMode,
+    manualPick,
+    playerSwapPick,
+  ]);
 
   function toggleAttend(id: string) {
     setAttendingIds((prev) => {
@@ -404,6 +510,10 @@ export function SessionCreateWizard({
         return;
       }
       if ("sessionId" in res && res.sessionId) {
+        if (onFirstDraftSaved) {
+          onFirstDraftSaved({ sessionId: res.sessionId, date });
+          return;
+        }
         router.push(`/leagues/${leagueId}/sessions/${res.sessionId}/edit`);
       }
     });
@@ -569,23 +679,33 @@ export function SessionCreateWizard({
     setGameRows((rows) => rows.filter((_, i) => i !== idx));
   }
 
+  function setCourtsCount(next: number) {
+    const clamped = clampCourts(next);
+    setCourtsInput(String(clamped));
+    setCommittedNumCourts(clamped);
+    setGameRows((rows) =>
+      rows.map((r) => ({
+        ...r,
+        courtNumber: Math.min(r.courtNumber, clamped),
+      })),
+    );
+    if (!sessionId) return;
+    startTransition(async () => {
+      const res = await updateSessionDraftMeta(leagueId, sessionId, {
+        date,
+        numCourts: clamped,
+      });
+      if ("error" in res && res.error) toast.error(res.error);
+      else router.refresh();
+    });
+  }
+
   return (
     <div className="flex flex-col gap-8">
       {isCompletedSession ? (
         <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-          This session is already <span className="font-medium text-foreground">complete</span>. Saving teams or
-          results updates the league standings and global padel levels for everyone in this session.
-        </div>
-      ) : null}
-      {!hasPersistedSession ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/5 px-4 py-4">
-          <p className="text-sm text-muted-foreground">
-            Nothing is stored in the database until you save. Use <span className="font-medium text-foreground">Save draft</span>{" "}
-            when you want to keep this session; you can leave or cancel anytime before that with no extra rows created.
-          </p>
-          <Button type="button" disabled={pending} onClick={onSaveDraft} className="w-fit">
-            {pending ? "Saving…" : "Save draft"}
-          </Button>
+          This session is <span className="font-medium text-foreground">complete</span>. Saving still updates
+          standings and padel levels for players here.
         </div>
       ) : null}
       <section className="flex flex-col gap-4">
@@ -614,48 +734,50 @@ export function SessionCreateWizard({
         <p className="text-muted-foreground text-sm">
           {inputMode === "full" ? (
             <>
-              This league records <span className="font-medium text-foreground">full session</span> results
-              (game scores per court). The mode was set when the league was created and cannot be changed here.
+              Results mode: <span className="font-medium text-foreground">scores per court</span> (set when the
+              league was created).
             </>
           ) : (
             <>
-              This league records <span className="font-medium text-foreground">championship court only</span>{" "}
-              results (court 1 win counts per team). The mode was set when the league was created and cannot be
-              changed here.
+              Results mode: <span className="font-medium text-foreground">court 1 wins only</span> (set when the
+              league was created).
             </>
           )}
         </p>
-        <div className="space-y-2">
-          <Label htmlFor="sess-courts">Courts in play (1–12)</Label>
-          <Input
-            id="sess-courts"
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            autoComplete="off"
-            value={courtsInput}
-            onChange={(e) => setCourtsInput(e.target.value.replace(/[^\d]/g, ""))}
-            onBlur={() => {
-              const next = courtsFromString(courtsInput, defaultCourts);
-              setCourtsInput(String(next));
-              if (!sessionId) return;
-              startTransition(async () => {
-                const res = await updateSessionDraftMeta(leagueId, sessionId, {
-                  date,
-                  numCourts: next,
-                });
-                if ("error" in res && res.error) toast.error(res.error);
-                else router.refresh();
-              });
-            }}
-          />
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium">Courts in play</legend>
+          <div className="flex max-w-[12rem] flex-col gap-2">
+            <Label htmlFor="sess-courts-count" className="sr-only">
+              Number of courts
+            </Label>
+            <Input
+              id="sess-courts-count"
+              type="number"
+              min={MIN_SESSION_COURTS}
+              max={MAX_SESSION_COURTS}
+              step={1}
+              inputMode="numeric"
+              autoComplete="off"
+              value={courtsInput}
+              onChange={(e) => setCourtsInput(e.target.value)}
+              onBlur={() => {
+                const t = courtsInput.trim();
+                const parsed =
+                  t === "" ? committedNumCourts : clampCourts(parseInt(t, 10) || committedNumCourts);
+                setCourtsCount(parsed);
+              }}
+              aria-describedby="sess-courts-hint"
+            />
+            <p id="sess-courts-hint" className="text-muted-foreground text-xs">
+              How many courts for this session ({MIN_SESSION_COURTS}–{MAX_SESSION_COURTS}).
+            </p>
+          </div>
           {inputMode === "champ_court_only" ? (
             <p className="text-muted-foreground text-xs">
-              Roster and teams use this many courts (×4 players, ×2 teams per court). Only court 1 wins
-              you enter below affect stats.
+              Roster size follows this count (4 players per court). Only wins on <span className="font-medium text-foreground">court 1</span> count toward stats.
             </p>
           ) : null}
-        </div>
+        </fieldset>
       </section>
 
       <section className="flex flex-col gap-4 border-t border-border pt-6">
@@ -663,9 +785,9 @@ export function SessionCreateWizard({
           <div>
             <h2 className="text-sm font-semibold tracking-tight">Who&apos;s playing?</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Tap players to include them. Each court needs four people (two pairs), so you can pick up to{" "}
-              <span className="font-medium text-foreground">{maxSelectablePlayers}</span> for{" "}
-              {effectiveCourts} court{effectiveCourts === 1 ? "" : "s"}.
+              Tap to include. Up to{" "}
+              <span className="font-medium text-foreground">{maxSelectablePlayers}</span> players (
+              {effectiveCourts} court{effectiveCourts === 1 ? "" : "s"} × 4).
             </p>
           </div>
           <Badge variant={atAttendanceCap ? "default" : "secondary"} className="shrink-0 tabular-nums">
@@ -675,8 +797,8 @@ export function SessionCreateWizard({
 
         {roster.length > 0 && roster.length < requiredPlayersForSession ? (
           <p className="text-sm text-amber-700 dark:text-amber-400">
-            This roster has {roster.length} player{roster.length === 1 ? "" : "s"}; you need {requiredPlayersForSession} to
-            fill {effectiveCourts} court{effectiveCourts === 1 ? "" : "s"}. Add roster players or reduce courts.
+            Roster has {roster.length} player{roster.length === 1 ? "" : "s"}; need {requiredPlayersForSession} for{" "}
+            {effectiveCourts} court{effectiveCourts === 1 ? "" : "s"}. Add players or lower the court count.
           </p>
         ) : null}
 
@@ -725,20 +847,16 @@ export function SessionCreateWizard({
         )}
 
         {atAttendanceCap ? (
-          <p className="text-muted-foreground text-xs">Maximum reached for this session size. Deselect someone to add a different player.</p>
+          <p className="text-muted-foreground text-xs">Cap reached—deselect someone to swap in another player.</p>
         ) : null}
 
         {attendingIds.length > 0 && attendingIds.length < requiredPlayersForSession ? (
           <p className="text-xs text-amber-600 dark:text-amber-500">
-            Select {requiredPlayersForSession - attendingIds.length} more player
-            {requiredPlayersForSession - attendingIds.length === 1 ? "" : "s"} to fill every court
-            {effectiveCourts > 1 ? ` (${effectiveCourts} × 4)` : ""}.
+            Pick {requiredPlayersForSession - attendingIds.length} more to fill all courts.
           </p>
         ) : null}
         {attendingIds.length > 0 && attendingIds.length % 2 !== 0 ? (
-          <p className="text-xs text-amber-600 dark:text-amber-500">
-            Use an even number of players so everyone can be paired.
-          </p>
+          <p className="text-xs text-amber-600 dark:text-amber-500">Player count must be even to form pairs.</p>
         ) : null}
       </section>
 
@@ -747,11 +865,9 @@ export function SessionCreateWizard({
           <div>
             <h2 className="text-sm font-semibold tracking-tight">Build your teams</h2>
             <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-              Each team is two players. You need{" "}
-              <span className="font-medium text-foreground">{teamsRequired}</span> team
-              {teamsRequired === 1 ? "" : "s"} total ({effectiveCourts} court
-              {effectiveCourts === 1 ? "" : "s"} × two sides) so every court has a match. Pairs here
-              feed straight into results below.
+              Two players per team. Need{" "}
+              <span className="font-medium text-foreground">{teamsRequired}</span> teams for{" "}
+              {effectiveCourts} court{effectiveCourts === 1 ? "" : "s"}. These pairs are used for results below.
             </p>
           </div>
           <Badge variant={teamsProgress ? "default" : "secondary"} className="shrink-0 tabular-nums">
@@ -761,70 +877,71 @@ export function SessionCreateWizard({
 
         {attendingIds.length < requiredPlayersForSession ? (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
-            Select everyone who&apos;s playing in the section above ({requiredPlayersForSession} players) before
-            building teams.
+            Finish selecting players above ({requiredPlayersForSession} total) before building teams.
           </p>
         ) : null}
 
         <div>
-          <Label className="text-base">How do you want to pair them?</Label>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Random is quickest; manual gives you full control if you already know the pairs.
-          </p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                setTeamMode("spin");
-                setManualPick(null);
-                playerSwapPickRef.current = null;
-                setPlayerSwapPick(null);
-              }}
+          <Label className="text-base">Pair players</Label>
+          <p className="mt-1 text-sm text-muted-foreground">Shuffle for speed, or pick pairs yourself.</p>
+          <RadioGroup
+            value={teamMode}
+            onValueChange={(v) => {
+              const mode = v as "spin" | "manual";
+              setTeamMode(mode);
+              setManualPick(null);
+              playerSwapPickRef.current = null;
+              setPlayerSwapPick(null);
+            }}
+            className="mt-3 grid w-full gap-3 sm:grid-cols-2"
+            name="team-pair-mode"
+          >
+            <Label
+              htmlFor="team-mode-spin"
               className={cn(
-                "flex flex-col gap-1 rounded-xl border px-4 py-3 text-left text-sm transition-all",
-                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                "disabled:pointer-events-none disabled:opacity-50",
+                "cursor-pointer rounded-xl border px-4 py-3 text-left text-sm transition-all",
+                "focus-within:ring-2 focus-within:ring-ring",
                 "hover:border-primary/40 hover:shadow-md",
                 teamMode === "spin"
                   ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/35"
-                  : "border-border bg-card ring-foreground/10 ring-1",
+                  : "border-border bg-card ring-1 ring-foreground/10",
               )}
             >
-              <span className="font-medium">Shuffle pairs</span>
-              <span className="text-muted-foreground text-xs leading-snug">
-                Randomly match everyone who&apos;s playing into teams of two.
+              <span className="flex items-start gap-3">
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="font-medium">Shuffle pairs</span>
+                  <span className="text-muted-foreground text-xs leading-snug">Random teams of two.</span>
+                </span>
+                <RadioGroupItem value="spin" id="team-mode-spin" className="mt-0.5 shrink-0" />
               </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTeamMode("manual");
-                playerSwapPickRef.current = null;
-                setPlayerSwapPick(null);
-              }}
+            </Label>
+            <Label
+              htmlFor="team-mode-manual"
               className={cn(
-                "flex flex-col gap-1 rounded-xl border px-4 py-3 text-left text-sm transition-all",
-                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                "disabled:pointer-events-none disabled:opacity-50",
+                "cursor-pointer rounded-xl border px-4 py-3 text-left text-sm transition-all",
+                "focus-within:ring-2 focus-within:ring-ring",
                 "hover:border-primary/40 hover:shadow-md",
                 teamMode === "manual"
                   ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/35"
-                  : "border-border bg-card ring-foreground/10 ring-1",
+                  : "border-border bg-card ring-1 ring-foreground/10",
               )}
             >
-              <span className="font-medium">Pick pairs yourself</span>
-              <span className="text-muted-foreground text-xs leading-snug">
-                Tap two players at a time to form each team—great for set partners or house rules.
+              <span className="flex items-start gap-3">
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="font-medium">Pick pairs yourself</span>
+                  <span className="text-muted-foreground text-xs leading-snug">
+                    Tap two players to form each team.
+                  </span>
+                </span>
+                <RadioGroupItem value="manual" id="team-mode-manual" className="mt-0.5 shrink-0" />
               </span>
-            </button>
-          </div>
+            </Label>
+          </RadioGroup>
         </div>
 
         {teamMode === "spin" ? (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              We&apos;ll shuffle the full attendee list into pairs. Run it again if you want a different draw.
-            </p>
+            <p className="text-sm text-muted-foreground">Shuffle again anytime for a new draw.</p>
             <Button
               type="button"
               variant="secondary"
@@ -845,10 +962,10 @@ export function SessionCreateWizard({
                     <span className="font-medium text-foreground">
                       {roster.find((x) => x.playerId === manualPick)?.displayName ?? "Player"}
                     </span>{" "}
-                    is selected — tap their partner, or tap them again to cancel.
+                    — tap partner, or tap again to cancel.
                   </>
                 ) : (
-                  <>Tap one player, then tap a second to lock a pair.</>
+                  <>Tap a player, then their partner.</>
                 )}
               </p>
               {unassigned.length > 0 ? (
@@ -908,12 +1025,10 @@ export function SessionCreateWizard({
               </ul>
             ) : teams.length > 0 ? (
               <p className="text-sm text-emerald-700 dark:text-emerald-400">
-                Everyone who&apos;s playing is on a team. Remove a team below if you want to change a pair.
+                All set. Remove a team below to change a pair.
               </p>
             ) : (
-              <p className="text-muted-foreground text-sm">
-                Select the full player list above, then tap players here to form pairs.
-              </p>
+              <p className="text-muted-foreground text-sm">Select everyone above, then pair players here.</p>
             )}
           </div>
         )}
@@ -921,9 +1036,7 @@ export function SessionCreateWizard({
         {teams.length > 0 ? (
           <div className="space-y-2">
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Your teams</p>
-            <p className="text-sm text-muted-foreground">
-              Tap one player, then another to swap them between teams—or tap the same player again to cancel.
-            </p>
+            <p className="text-sm text-muted-foreground">Tap two players to swap between teams; same player again cancels.</p>
             <ul className="flex flex-col gap-2">
               {teams.map((pair, idx) => {
                 const pA = roster.find((r) => r.playerId === pair[0])!;
@@ -1020,8 +1133,7 @@ export function SessionCreateWizard({
 
         {teams.length > 0 && teams.length < teamsRequired ? (
           <p className="text-xs text-amber-600 dark:text-amber-500">
-            Add {teamsRequired - teams.length} more team{teamsRequired - teams.length === 1 ? "" : "s"} (shuffle
-            again or pair remaining players) before saving.
+            Add {teamsRequired - teams.length} more team{teamsRequired - teams.length === 1 ? "" : "s"} before saving.
           </p>
         ) : null}
 
@@ -1035,25 +1147,21 @@ export function SessionCreateWizard({
           <h2 className="text-sm font-semibold tracking-tight">Match results</h2>
           {inputMode === "champ_court_only" ? (
             <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-              For each team, enter how many times they won on <span className="font-medium text-foreground">court 1</span>{" "}
-              only. Wins on other courts are not stored. No scores needed. Each pair shows{" "}
-              <span className="font-medium text-foreground">Exp Win (levels)</span>—how much of the session&apos;s
-              court‑1 wins we&apos;d expect for that pair vs the others (softmax—not head‑to‑head).
+              Enter <span className="font-medium text-foreground">court 1</span> wins per team only (no scores).
+              <span className="font-medium text-foreground"> Exp Win</span> is an expected share from padel levels vs
+              all pairs here—not a head‑to‑head %.
             </p>
           ) : (
             <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-              Log each game you want on the leaderboard. The same two teams can play again—add another row. Include
-              at least one game per court ({effectiveCourts} court{effectiveCourts === 1 ? "" : "s"}); extras can be
-              rematches or pickup games. Side odds use your global padel levels (team Elo-style model).
+              Add each game for the leaderboard (rematches = extra rows). Need at least one game per court (
+              {effectiveCourts}). Side odds use global padel levels.
             </p>
           )}
         </div>
 
         {inputMode === "champ_court_only" ? (
           champCourt1WinsStr.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Save teams above to enter court 1 wins for each pair.
-            </p>
+            <p className="text-sm text-muted-foreground">Save teams above to enter court 1 wins.</p>
           ) : (
             <>
               {champSessionLeaders && champSessionLeaders.maxW > 0 ? (
@@ -1067,9 +1175,7 @@ export function SessionCreateWizard({
                   </p>
                 </div>
               ) : (
-                <p className="text-muted-foreground text-xs">
-                  Enter at least one win on court 1 for a team before completing the session.
-                </p>
+                <p className="text-muted-foreground text-xs">Add at least one court 1 win before completing.</p>
               )}
 
               <ul className="flex flex-col gap-3">
@@ -1140,9 +1246,7 @@ export function SessionCreateWizard({
             </>
           )
         ) : gameRows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Save teams above to start entering scores. You can add more games anytime.
-          </p>
+          <p className="text-sm text-muted-foreground">Save teams above, then add games here.</p>
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1166,8 +1270,8 @@ export function SessionCreateWizard({
 
             {missingCourtsMessage.length > 0 ? (
               <p className="text-xs text-amber-600 dark:text-amber-500">
-                Before completing, add at least one result for court{missingCourtsMessage.length === 1 ? "" : "s"}{" "}
-                {missingCourtsMessage.join(", ")} (or change a game&apos;s court below).
+                Add a result for court{missingCourtsMessage.length === 1 ? "" : "s"} {missingCourtsMessage.join(", ")}
+                before completing (or change court on a row below).
               </p>
             ) : null}
 
@@ -1207,26 +1311,59 @@ export function SessionCreateWizard({
                       </Button>
                     </div>
 
-                    <div className="mb-4 grid gap-2 sm:max-w-xs">
-                      <Label className="text-xs">Court</Label>
-                      <select
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                        value={row.courtNumber}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          setGameRows((r) => {
-                            const n = [...r];
-                            n[idx] = { ...n[idx]!, courtNumber: v };
-                            return n;
-                          });
-                        }}
-                      >
-                        {Array.from({ length: effectiveCourts }, (_, i) => i + 1).map((c) => (
-                          <option key={c} value={c}>
-                            Court {c}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="mb-4 space-y-2">
+                      <Label className="text-xs font-medium" htmlFor={`game-${idx}-court`} id={`game-${idx}-court-legend`}>
+                        Court
+                      </Label>
+                      {effectiveCourts > SESSION_GAME_COURT_RADIO_MAX ? (
+                        <select
+                          id={`game-${idx}-court`}
+                          className="flex h-10 w-full max-w-xs rounded-md border border-input bg-background px-2 text-sm"
+                          value={row.courtNumber}
+                          onChange={(e) => {
+                            const courtNum = parseInt(e.target.value, 10);
+                            setGameRows((r) => {
+                              const n = [...r];
+                              n[idx] = { ...n[idx]!, courtNumber: courtNum };
+                              return n;
+                            });
+                          }}
+                          aria-labelledby={`game-${idx}-court-legend`}
+                        >
+                          {Array.from({ length: effectiveCourts }, (_, i) => i + 1).map((c) => (
+                            <option key={c} value={c}>
+                              Court {c}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <RadioGroup
+                          value={String(row.courtNumber)}
+                          onValueChange={(v) => {
+                            const courtNum = parseInt(v, 10);
+                            setGameRows((r) => {
+                              const n = [...r];
+                              n[idx] = { ...n[idx]!, courtNumber: courtNum };
+                              return n;
+                            });
+                          }}
+                          className="flex w-full flex-wrap gap-x-4 gap-y-2"
+                          name={`game-${idx}-court`}
+                          aria-labelledby={`game-${idx}-court-legend`}
+                        >
+                          {Array.from({ length: effectiveCourts }, (_, i) => i + 1).map((c) => {
+                            const cid = `game-${idx}-court-${c}`;
+                            return (
+                              <div key={c} className="flex items-center gap-2">
+                                <RadioGroupItem value={String(c)} id={cid} />
+                                <Label htmlFor={cid} className="text-xs font-normal">
+                                  {c}
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </RadioGroup>
+                      )}
                     </div>
 
                     {winEst ? (
@@ -1355,23 +1492,71 @@ export function SessionCreateWizard({
                       </div>
                     </div>
 
-                    <div className="mt-3 grid gap-2 sm:max-w-md">
-                      <Label className="text-xs">Winner</Label>
-                      <select
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-medium" id={`game-${idx}-winner-legend`}>
+                        Winner
+                      </p>
+                      <RadioGroup
                         value={row.winner}
-                        onChange={(e) => {
-                          const v = e.target.value as "team_a" | "team_b";
+                        onValueChange={(v) => {
+                          const w = v as "team_a" | "team_b";
                           setGameRows((r) => {
                             const n = [...r];
-                            n[idx] = { ...n[idx]!, winner: v };
+                            n[idx] = { ...n[idx]!, winner: w };
                             return n;
                           });
                         }}
+                        className="grid w-full gap-2 sm:max-w-md"
+                        name={`game-${idx}-winner`}
+                        aria-labelledby={`game-${idx}-winner-legend`}
                       >
-                        <option value="team_a">Side A ({labelA})</option>
-                        <option value="team_b">Side B ({labelB})</option>
-                      </select>
+                        <Label
+                          htmlFor={`game-${idx}-winner-a`}
+                          className={cn(
+                            "cursor-pointer rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                            "focus-within:ring-2 focus-within:ring-ring",
+                            row.winner === "team_a"
+                              ? "border-primary bg-primary/5 ring-1 ring-primary/25"
+                              : "border-border bg-background hover:border-primary/35",
+                          )}
+                        >
+                          <span className="flex items-start gap-3">
+                            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                              <span className="text-xs font-medium">Side A</span>
+                              <span
+                                className="text-muted-foreground line-clamp-2 text-xs leading-snug"
+                                title={labelA}
+                              >
+                                {truncateLabel(labelA)}
+                              </span>
+                            </span>
+                            <RadioGroupItem value="team_a" id={`game-${idx}-winner-a`} className="mt-0.5 shrink-0" />
+                          </span>
+                        </Label>
+                        <Label
+                          htmlFor={`game-${idx}-winner-b`}
+                          className={cn(
+                            "cursor-pointer rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                            "focus-within:ring-2 focus-within:ring-ring",
+                            row.winner === "team_b"
+                              ? "border-primary bg-primary/5 ring-1 ring-primary/25"
+                              : "border-border bg-background hover:border-primary/35",
+                          )}
+                        >
+                          <span className="flex items-start gap-3">
+                            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                              <span className="text-xs font-medium">Side B</span>
+                              <span
+                                className="text-muted-foreground line-clamp-2 text-xs leading-snug"
+                                title={labelB}
+                              >
+                                {truncateLabel(labelB)}
+                              </span>
+                            </span>
+                            <RadioGroupItem value="team_b" id={`game-${idx}-winner-b`} className="mt-0.5 shrink-0" />
+                          </span>
+                        </Label>
+                      </RadioGroup>
                     </div>
                   </li>
                 );
@@ -1391,6 +1576,17 @@ export function SessionCreateWizard({
           </>
         )}
       </section>
+
+      {!hasPersistedSession ? (
+        <footer className="mt-2 border-t border-border pt-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">Save a draft and finish later from this league.</p>
+            <Button type="button" disabled={pending} onClick={onSaveDraft} className="w-full shrink-0 sm:w-auto">
+              {pending ? "Saving…" : "Save draft"}
+            </Button>
+          </div>
+        </footer>
+      ) : null}
     </div>
   );
 }

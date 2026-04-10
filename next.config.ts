@@ -31,7 +31,8 @@ const nextConfig: NextConfig = {
   experimental: {
     /** Softer refetch when navigating between dynamic routes (seconds). */
     staleTimes: {
-      dynamic: 30,
+      /** Longer client router reuse for dynamic segments → fewer full RSC round-trips / loading flashes. */
+      dynamic: 120,
       static: 180,
     },
     /** Enables Link `transitionTypes` + browser View Transitions where supported. */

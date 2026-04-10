@@ -1,6 +1,24 @@
 "use client";
 
-import { useId, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Minus, TrendingDown, TrendingUp } from "lucide-react";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import {
   DEFAULT_SKILL,
   DISPLAY_SKILL_MAX,
@@ -18,239 +36,339 @@ export type RatingHistoryPoint = {
 type ProfileRatingChartProps = {
   history: RatingHistoryPoint[];
   className?: string;
+  /**
+   * `embedded` — title, window toolbar, chart, window trend (for inside Skill rating card).
+   * `card` — same chrome wrapped in a nested Card. `inline` — toolbar + chart only (e.g. modals).
+   */
+  presentation?: "inline" | "card" | "embedded";
 };
 
-const VIEW_W = 640;
-const VIEW_H = 200;
-const PAD_L = 44;
-const PAD_R = 12;
-const PAD_T = 16;
-const PAD_B = 28;
+const chartConfig = {
+  skill: {
+    label: "Skill rating",
+    color: "var(--chart-1)",
+  },
+} satisfies ChartConfig;
 
-function clamp(n: number, lo: number, hi: number) {
-  return Math.min(hi, Math.max(lo, n));
+type RangeKey = "all" | 50 | 30 | 15;
+
+const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: 50, label: "50" },
+  { key: 30, label: "30" },
+  { key: 15, label: "15" },
+];
+
+function sliceHistory(history: RatingHistoryPoint[], mode: RangeKey) {
+  if (mode === "all") return history;
+  if (history.length <= mode) return history;
+  return history.slice(-mode);
 }
 
-function formatSkillTick(n: number) {
-  return Math.round(n).toString();
+function padSkillDomain(skills: number[]): [number, number] {
+  if (skills.length === 0) {
+    return [DEFAULT_SKILL - 24, DEFAULT_SKILL + 24];
+  }
+  let lo = Math.min(...skills);
+  let hi = Math.max(...skills);
+  const pad = Math.max(10, (hi - lo) * 0.15 || 20);
+  lo -= pad;
+  hi += pad;
+  lo = Math.max(DISPLAY_SKILL_MIN - 200, lo);
+  hi = Math.min(DISPLAY_SKILL_MAX + 200, hi);
+  if (hi - lo < 36) {
+    const mid = (lo + hi) / 2;
+    lo = mid - 18;
+    hi = mid + 18;
+  }
+  return [Math.round(lo), Math.round(hi)];
 }
 
-function computeLayout(history: RatingHistoryPoint[]) {
-  const innerW = VIEW_W - PAD_L - PAD_R;
-  const innerH = VIEW_H - PAD_T - PAD_B;
-  const pts = history.map((h) => ({
-    t: new Date(h.recorded_at).getTime(),
-    skill: h.skill,
-  }));
+function formatSignedSkill(n: number) {
+  if (!Number.isFinite(n)) return "—";
+  if (n > 0) return `+${Math.round(n)}`;
+  return `${Math.round(n)}`;
+}
 
-  if (pts.length === 0) {
-    return {
-      pathLine: "",
-      pathArea: "",
-      yTicks: [] as number[],
-      xLabels: [] as { x: number; text: string }[],
-      minY: DEFAULT_SKILL,
-      maxY: DEFAULT_SKILL,
-      ariaLabel: "No rating history yet.",
-      plotPoints: [] as { x: number; y: number; skill: number }[],
-    };
-  }
+export function ProfileRatingChart({
+  history,
+  className,
+  presentation = "inline",
+}: ProfileRatingChartProps) {
+  const [range, setRange] = useState<RangeKey>("all");
 
-  const skills = pts.map((p) => p.skill);
-  let min = Math.min(...skills);
-  let max = Math.max(...skills);
-  const pad = Math.max(12, (max - min) * 0.12 || 24);
-  min -= pad;
-  max += pad;
-  min = clamp(min, DISPLAY_SKILL_MIN - 200, DISPLAY_SKILL_MAX + 200);
-  max = clamp(max, DISPLAY_SKILL_MIN - 200, DISPLAY_SKILL_MAX + 200);
-  if (max - min < 40) {
-    const mid = (min + max) / 2;
-    min = mid - 20;
-    max = mid + 20;
-  }
+  const visible = useMemo(() => sliceHistory(history, range), [history, range]);
 
-  const toX = (i: number) => PAD_L + (innerW * i) / Math.max(1, pts.length - 1);
-  const toY = (skill: number) => PAD_T + innerH - (innerH * (skill - min)) / (max - min);
-
-  const plotPoints = pts.map((p, i) => {
-    const x = pts.length === 1 ? PAD_L + innerW / 2 : toX(i);
-    const y = toY(p.skill);
-    return { x, y, skill: p.skill };
-  });
-
-  const lineD = plotPoints
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-    .join(" ");
-
-  const last = plotPoints[plotPoints.length - 1];
-  const first = plotPoints[0];
-  const areaD = [
-    `M ${first.x.toFixed(2)} ${(PAD_T + innerH).toFixed(2)}`,
-    ...plotPoints.map((p) => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`),
-    `L ${last.x.toFixed(2)} ${(PAD_T + innerH).toFixed(2)}`,
-    "Z",
-  ].join(" ");
-
-  const yStep = (max - min) / 3;
-  const yTicks = [min, min + yStep, min + 2 * yStep, max].map((v) => Math.round(v));
-
-  const xLabels: { x: number; text: string }[] = [];
-  if (pts.length === 1) {
-    xLabels.push({
-      x: plotPoints[0].x,
-      text: new Date(pts[0].t).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
+  const chartRows = useMemo(
+    () =>
+      visible.map((h) => {
+        const d = new Date(h.recorded_at);
+        return {
+          label: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+          tooltipTitle: d.toLocaleString(undefined, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          }),
+          skill: Math.round(h.skill),
+          ratedGames: h.rated_games,
+        };
       }),
-    });
-  } else {
-    const pick = (idx: number) => {
-      const i = clamp(idx, 0, pts.length - 1);
-      xLabels.push({
-        x: plotPoints[i].x,
-        text: new Date(pts[i].t).toLocaleDateString(undefined, {
-          month: "short",
-          day: "numeric",
-        }),
-      });
+    [visible],
+  );
+
+  const yDomain = useMemo(
+    () => padSkillDomain(visible.map((h) => h.skill)),
+    [visible],
+  );
+
+  const windowTrend = useMemo(() => {
+    if (visible.length < 2) return null;
+    const first = visible[0];
+    const last = visible[visible.length - 1];
+    const delta = last.skill - first.skill;
+    const firstLv = formatDisplayLevel(first.skill);
+    const lastLv = formatDisplayLevel(last.skill);
+    return {
+      delta,
+      firstLabel: new Date(first.recorded_at).toLocaleDateString(undefined, {
+        dateStyle: "medium",
+      }),
+      lastLabel: new Date(last.recorded_at).toLocaleDateString(undefined, {
+        dateStyle: "medium",
+      }),
+      firstLv,
+      lastLv,
+      snapshots: visible.length,
     };
-    pick(0);
-    if (pts.length > 2) pick(Math.floor((pts.length - 1) / 2));
-    pick(pts.length - 1);
-  }
+  }, [visible]);
 
-  const firstD = new Date(pts[0].t).toLocaleDateString();
-  const lastD = new Date(pts[pts.length - 1].t).toLocaleDateString();
-  const ariaLabel = `Skill rating from ${firstD} to ${lastD}, ${pts.length} data points.`;
-
-  return {
-    pathLine: lineD,
-    pathArea: areaD,
-    yTicks,
-    xLabels,
-    minY: min,
-    maxY: max,
-    ariaLabel,
-    plotPoints,
-  };
-}
-
-export function ProfileRatingChart({ history, className }: ProfileRatingChartProps) {
-  const rawGrad = useId();
-  const rawClip = useId();
-  const gradId = rawGrad.replace(/:/g, "");
-  const clipId = rawClip.replace(/:/g, "");
-
-  const { pathLine, pathArea, yTicks, xLabels, minY, maxY, ariaLabel, plotPoints } =
-    useMemo(() => computeLayout(history), [history]);
+  const rangeDescription = useMemo(() => {
+    if (visible.length === 0) return "";
+    if (visible.length === 1) {
+      return new Date(visible[0].recorded_at).toLocaleDateString(undefined, {
+        dateStyle: "medium",
+      });
+    }
+    const a = new Date(visible[0].recorded_at).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const b = new Date(visible[visible.length - 1].recorded_at).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    return `${a} → ${b} · ${visible.length} snapshots`;
+  }, [visible]);
 
   if (history.length === 0) {
     return null;
   }
 
-  return (
-    <div className={cn("w-full", className)}>
-      <svg
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        className="h-[min(220px,42vw)] w-full max-h-[240px] touch-manipulation"
-        role="img"
-        aria-label={ariaLabel}
-      >
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" className="[stop-color:var(--color-chart-1)]" stopOpacity="0.35" />
-            <stop offset="100%" className="[stop-color:var(--color-chart-1)]" stopOpacity="0.02" />
-          </linearGradient>
-          <clipPath id={clipId}>
-            <rect
-              x={PAD_L}
-              y={PAD_T}
-              width={VIEW_W - PAD_L - PAD_R}
-              height={VIEW_H - PAD_T - PAD_B}
-              rx="6"
-            />
-          </clipPath>
-        </defs>
+  const framed = presentation === "card" || presentation === "embedded";
 
-        {yTicks.map((tick) => {
-          const y =
-            PAD_T +
-            (VIEW_H - PAD_T - PAD_B) -
-            ((VIEW_H - PAD_T - PAD_B) * (tick - minY)) / (maxY - minY);
-          return (
-            <g key={tick}>
-              <line
-                x1={PAD_L}
-                y1={y}
-                x2={VIEW_W - PAD_R}
-                y2={y}
-                className="stroke-border/80"
-                strokeWidth={1}
-                strokeDasharray="4 6"
-              />
-              <text
-                x={PAD_L - 8}
-                y={y + 4}
-                textAnchor="end"
-                className="fill-muted-foreground text-[10px]"
-                style={{ fontFamily: "var(--font-mono), ui-monospace, monospace" }}
-              >
-                {formatSkillTick(tick)}
-              </text>
-            </g>
-          );
-        })}
-
-        <text
-          x={PAD_L}
-          y={12}
-          className="fill-muted-foreground text-[10px] font-medium uppercase tracking-wide"
-          style={{ fontFamily: "var(--font-sans), ui-sans-serif, system-ui, sans-serif" }}
-        >
-          Skill
-        </text>
-
-        <g clipPath={`url(#${clipId})`}>
-          {pathArea ? (
-            <path d={pathArea} fill={`url(#${gradId})`} className="motion-reduce:opacity-90" />
-          ) : null}
-          {pathLine ? (
-            <path
-              d={pathLine}
-              fill="none"
-              stroke="var(--chart-1)"
-              strokeWidth={2.25}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ) : null}
-          {plotPoints.map((p, i) => (
-            <circle
-              key={`${p.skill}-${i}`}
-              cx={p.x}
-              cy={p.y}
-              r={plotPoints.length === 1 ? 5 : 4}
-              fill="var(--card)"
-              stroke="var(--chart-1)"
-              strokeWidth={2}
-            />
-          ))}
-        </g>
-
-        {xLabels.map((lab, i) => (
-          <text
-            key={`${lab.text}-${i}`}
-            x={lab.x}
-            y={VIEW_H - 6}
-            textAnchor="middle"
-            className="fill-muted-foreground text-[10px]"
-            style={{ fontFamily: "var(--font-sans), ui-sans-serif, system-ui, sans-serif" }}
+  const windowToolbar = (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Window
+      </span>
+      <div className="flex flex-wrap gap-1">
+        {RANGE_OPTIONS.map((opt) => (
+          <Button
+            key={String(opt.key)}
+            type="button"
+            variant={range === opt.key ? "secondary" : "ghost"}
+            size="sm"
+            className="h-8 rounded-lg px-2.5 text-xs"
+            onClick={() => setRange(opt.key)}
           >
-            {lab.text}
-          </text>
+            {opt.label}
+          </Button>
         ))}
-      </svg>
+      </div>
+    </div>
+  );
+
+  const chartOuterHeight = framed
+    ? "h-[220px] min-h-[220px] sm:h-[240px] sm:min-h-[240px]"
+    : "h-[240px] min-h-[240px] sm:h-[260px] sm:min-h-[260px]";
+
+  const chartBlock = (
+    <div className={cn("w-full min-w-0", chartOuterHeight)}>
+      <ChartContainer config={chartConfig} className="h-full w-full min-h-0">
+        <LineChart
+          accessibilityLayer
+          data={chartRows}
+          margin={{
+            left: framed ? 8 : 4,
+            right: 12,
+            top: 8,
+            bottom: 4,
+          }}
+        >
+          <CartesianGrid vertical={false} className="stroke-border/50" />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            interval="preserveStartEnd"
+            minTickGap={28}
+          />
+          <YAxis
+            dataKey="skill"
+            domain={yDomain}
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            width={40}
+            tickFormatter={(v) => `${v}`}
+          />
+          <ChartTooltip
+            cursor={false}
+            content={
+              <ChartTooltipContent
+                labelFormatter={(_, payload) => {
+                  const row = payload?.[0]?.payload as { tooltipTitle?: string } | undefined;
+                  return row?.tooltipTitle ?? null;
+                }}
+                formatter={(value, name, item) => {
+                  const row = item?.payload as { ratedGames?: number } | undefined;
+                  return (
+                    <div className="flex w-full flex-col items-end gap-0.5 text-right">
+                      <span className="font-mono font-medium tabular-nums text-foreground">
+                        {value} skill
+                      </span>
+                      {row?.ratedGames != null ? (
+                        <span className="text-[0.7rem] text-muted-foreground tabular-nums">
+                          {row.ratedGames} rated games
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                }}
+              />
+            }
+          />
+          <Line
+            name="Skill rating"
+            dataKey="skill"
+            type="natural"
+            stroke="var(--color-skill)"
+            strokeWidth={2}
+            dot={
+              chartRows.length <= 24
+                ? {
+                    fill: "var(--color-skill)",
+                  }
+                : false
+            }
+            activeDot={{
+              r: 6,
+              fill: "var(--color-skill)",
+            }}
+            isAnimationActive={chartRows.length < 80}
+          />
+        </LineChart>
+      </ChartContainer>
+    </div>
+  );
+
+  const windowTrendFooterInner = (
+    <>
+      {windowTrend ? (
+        <>
+          <div className="flex flex-wrap items-center gap-2 leading-none font-medium text-foreground">
+            {windowTrend.delta > 0 ? (
+              <>
+                <span>
+                  Net growth <span className="tabular-nums">{formatSignedSkill(windowTrend.delta)}</span>{" "}
+                  skill ({windowTrend.firstLv} → {windowTrend.lastLv})
+                </span>
+                <TrendingUp className="size-4 shrink-0 text-chart-1" aria-hidden />
+              </>
+            ) : windowTrend.delta < 0 ? (
+              <>
+                <span>
+                  Net decline <span className="tabular-nums">{formatSignedSkill(windowTrend.delta)}</span>{" "}
+                  skill ({windowTrend.firstLv} → {windowTrend.lastLv})
+                </span>
+                <TrendingDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              </>
+            ) : (
+              <>
+                <span>
+                  Flat in this window ({windowTrend.firstLv} → {windowTrend.lastLv})
+                </span>
+                <Minus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              </>
+            )}
+          </div>
+          <p className="leading-snug text-muted-foreground">
+            From {windowTrend.firstLabel} through {windowTrend.lastLabel} ({windowTrend.snapshots}{" "}
+            rating updates). Shorter windows focus on recent form.
+          </p>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 font-medium text-foreground">
+            <span>Single snapshot so far</span>
+            <Minus className="size-4 text-muted-foreground" aria-hidden />
+          </div>
+          <p className="leading-snug text-muted-foreground">
+            Complete more rated sessions to see how your skill moves over time.
+          </p>
+        </>
+      )}
+    </>
+  );
+
+  if (presentation === "embedded") {
+    return (
+      <div
+        className={cn(
+          "w-full min-w-0 space-y-4 rounded-xl border border-border/50 bg-muted/10 p-4 sm:p-5",
+          className,
+        )}
+      >
+        <div className="space-y-1">
+          <h3 className="font-heading text-base font-semibold tracking-tight text-foreground">
+            Skill over time
+          </h3>
+          <p className="text-xs text-muted-foreground sm:text-sm">{rangeDescription}</p>
+        </div>
+        {windowToolbar}
+        {chartBlock}
+        <div className="flex flex-col gap-2 border-t border-border/50 pt-4 text-sm">
+          {windowTrendFooterInner}
+        </div>
+      </div>
+    );
+  }
+
+  if (presentation === "card") {
+    return (
+      <Card className={cn("w-full min-w-0 border-border/70 shadow-sm", className)}>
+        <CardHeader className="pb-2">
+          <CardTitle className="font-heading text-base">Skill over time</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">{rangeDescription}</CardDescription>
+        </CardHeader>
+        <CardContent className="min-w-0 space-y-3 pt-0">
+          {windowToolbar}
+          {chartBlock}
+        </CardContent>
+        <CardFooter className="flex-col items-start gap-2 border-t border-border/50 bg-muted/10 pt-4 text-sm">
+          {windowTrendFooterInner}
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  return (
+    <div className={cn("min-w-0 space-y-3", className)}>
+      {windowToolbar}
+      {chartBlock}
     </div>
   );
 }
@@ -259,6 +377,10 @@ type ProfileRatingScaleBarProps = {
   skill: number;
   className?: string;
 };
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, n));
+}
 
 /** Position on the 800–2200 display scale (algorithm.md). */
 export function ProfileRatingScaleBar({ skill, className }: ProfileRatingScaleBarProps) {
@@ -285,9 +407,7 @@ export function ProfileRatingScaleBar({ skill, className }: ProfileRatingScaleBa
         aria-valuenow={Math.round(skill)}
         aria-label={`Skill ${Math.round(skill)} on scale from ${DISPLAY_SKILL_MIN} to ${DISPLAY_SKILL_MAX}`}
       >
-        <div
-          className="absolute inset-y-0 left-0 w-full rounded-full bg-gradient-to-r from-chart-3 via-chart-1 to-chart-2 opacity-35"
-        />
+        <div className="absolute inset-y-0 left-0 w-full rounded-full bg-gradient-to-r from-chart-3 via-chart-1 to-chart-2 opacity-35" />
         <div
           className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-primary shadow-sm ring-2 ring-primary/25"
           style={{ left: pct }}

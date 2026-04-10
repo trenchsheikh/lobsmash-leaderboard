@@ -63,3 +63,5 @@ Then optionally: `npm run db:migrate:last-seen`
 The league page polls draft session data every **12 seconds** and also subscribes to **`public.sessions`** row changes filtered by `league_id` (so creating or updating a session triggers a refresh). No SQL migration is required for that subscription.
 
 For **near-instant** updates when only `games`, `session_teams`, or `session_court1_pair_wins` change, enable **Realtime** replication for those tables in **Supabase Dashboard → Database → Publications** (or the Realtime settings UI for your project version), so Postgres changes broadcast to connected clients. The app does not require it; polling still picks up changes within the poll interval.
+
+**In-app header notifications (session partner rows):** apply `migrations/20260410120000_user_notifications.sql` (creates `public.user_notifications`, RLS, and `sync_session_partner_notifications`). Use `npm run db:migrate:file -- supabase/migrations/20260410120000_user_notifications.sql` when `DATABASE_URL` is set, or paste into the SQL Editor.

@@ -1,3 +1,4 @@
+import { displayFirstName } from "@/lib/display-name";
 import type { LeagueFormat } from "@/lib/league-format";
 import {
   sortLeaderboard,
@@ -198,8 +199,8 @@ export function mergePairLeaderboardWithDraft(args: {
     const [pl, ph] = pk.split("\0");
     const n1 = args.pairPlayerMetaById[pl]?.name ?? "Player";
     const n2 = args.pairPlayerMetaById[ph]?.name ?? "Player";
-    const names = [n1, n2].sort((a, b) => a.localeCompare(b));
-    const label = `${names[0]} & ${names[1]}`;
+    const sorted = [n1, n2].sort((a, b) => a.localeCompare(b));
+    const label = `${displayFirstName(sorted[0])} & ${displayFirstName(sorted[1])}`;
     const cur = byKey.get(pk);
     const merged: PairChampionshipRow = {
       player_low: pl,

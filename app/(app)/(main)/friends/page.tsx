@@ -3,7 +3,6 @@ import { requireOnboarded } from "@/lib/auth/profile";
 import { loadFriendsPageData } from "@/lib/friends-data";
 import { buttonVariants } from "@/lib/button-variants";
 import { PageHeader } from "@/components/page-header";
-import { UserAvatarDisplay } from "@/components/user-avatar-display";
 import {
   Card,
   CardContent,
@@ -12,20 +11,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   FriendCard,
   FriendSearch,
 } from "@/components/friends-interactive";
+import { FriendsLeaderboardTable } from "@/components/friends-leaderboard-table";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { formatDisplayLevel } from "@/lib/rating";
 
 export default async function FriendsPage() {
   const { user } = await requireOnboarded();
@@ -137,62 +127,7 @@ export default async function FriendsPage() {
               </p>
             </div>
           ) : (
-            <div className="max-h-[min(70vh,44rem)] overflow-auto rounded-lg border border-border/60">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Player</TableHead>
-                    <TableHead className="text-right">Skill</TableHead>
-                    <TableHead className="text-right">Games</TableHead>
-                    <TableHead className="text-right">Wins</TableHead>
-                    <TableHead className="text-right">Court 1</TableHead>
-                    <TableHead className="text-right">Points</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {leaderboard.map((row, i) => (
-                    <TableRow key={row.player_id}>
-                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <UserAvatarDisplay
-                            name={row.name}
-                            username={row.username}
-                            avatarUrl={row.avatar_url}
-                            size="sm"
-                          />
-                          <span className="font-medium">{row.name}</span>
-                          {row.user_id === user.id ? (
-                            <Badge variant="secondary">You</Badge>
-                          ) : null}
-                          {row.username ? (
-                            <span className="font-mono text-xs text-muted-foreground">
-                              @{row.username}
-                            </span>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        Lv {formatDisplayLevel(row.skill)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {row.total_games}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {row.total_wins}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {row.court1_wins}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {row.total_points}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <FriendsLeaderboardTable leaderboard={leaderboard} currentUserId={user.id} />
           )}
         </CardContent>
       </Card>

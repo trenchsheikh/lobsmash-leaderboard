@@ -10,6 +10,7 @@ import {
 import { buttonVariants } from "@/lib/button-variants";
 import { PageHeader } from "@/components/page-header";
 import { SessionCreateWizard } from "@/components/session-create-wizard";
+import { MAX_SESSION_COURTS, MIN_SESSION_COURTS } from "@/lib/session-courts";
 
 type PageProps = {
   params: Promise<{ leagueId: string }>;
@@ -84,7 +85,7 @@ export default async function NewSessionPage({ params }: PageProps) {
 
   const lc = (league as { last_court_count?: number | null }).last_court_count;
   const defaultCourts =
-    typeof lc === "number" && lc >= 1 && lc <= 12 ? lc : 4;
+    typeof lc === "number" && lc >= MIN_SESSION_COURTS && lc <= MAX_SESSION_COURTS ? lc : 4;
 
   const leagueFormat: LeagueFormat = isLeagueFormat(String(league.format))
     ? (league.format as LeagueFormat)
@@ -97,15 +98,13 @@ export default async function NewSessionPage({ params }: PageProps) {
         title="New session"
         description={
           <>
-            Set up teams, courts, and results in{" "}
             <Link
               href={`/leagues/${leagueId}`}
               className="font-medium text-primary underline-offset-4 hover:underline"
             >
               {league.name}
             </Link>
-            . Nothing is stored until you click <span className="font-medium text-foreground">Save draft</span>
-            —you can leave or cancel anytime before that with no session row created.
+            : set up teams and results. Save a draft anytime from the bottom of the form.
           </>
         }
       />

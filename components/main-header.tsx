@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown, LogOut, Menu } from "lucide-react";
+import { NotificationsBell } from "@/components/notifications-bell";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
 import { Button } from "@/components/ui/button";
 import {
@@ -170,60 +171,63 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
           </DialogDrawerContent>
         </Dialog>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className={cn(
-              "flex max-w-[min(100%,220px)] items-center gap-2 rounded-full py-1 pr-1.5 pl-1 outline-none",
-              "ring-offset-background hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            )}
-            aria-label="Account menu"
-          >
-            <UserAvatarDisplay
-              name={user.name}
-              username={user.username}
-              avatarUrl={user.avatarUrl}
-              size="sm"
-              className="ring-2 ring-background"
-            />
-            <span className="hidden min-w-0 truncate text-left text-sm font-medium lg:inline">
-              {displayName}
-            </span>
-            <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col gap-0.5">
-                  <span className="truncate text-sm font-medium">{displayName}</span>
-                  {user.username ? (
-                    <span className="truncate font-mono text-xs text-muted-foreground">
-                      @{user.username}
-                    </span>
-                  ) : null}
-                </div>
-              </DropdownMenuLabel>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => router.push("/profile")}>
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/dashboard")}>
-                Dashboard
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => signOut({ redirectUrl: "/login" })}
-              >
-                <LogOut className="size-4" />
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+          <NotificationsBell />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={cn(
+                "flex max-w-[min(100%,220px)] items-center gap-2 rounded-full py-1 pr-1.5 pl-1 outline-none",
+                "ring-offset-background hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              )}
+              aria-label="Account menu"
+            >
+              <UserAvatarDisplay
+                name={user.name}
+                username={user.username}
+                avatarUrl={user.avatarUrl}
+                size="sm"
+                className="ring-2 ring-background"
+              />
+              <span className="hidden min-w-0 truncate text-left text-sm font-medium lg:inline">
+                {displayName}
+              </span>
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="truncate text-sm font-medium">{displayName}</span>
+                    {user.username ? (
+                      <span className="truncate font-mono text-xs text-muted-foreground">
+                        @{user.username}
+                      </span>
+                    ) : null}
+                  </div>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => router.push("/profile")}>
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/dashboard")}>
+                  Dashboard
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => signOut({ redirectUrl: "/login" })}
+                >
+                  <LogOut className="size-4" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

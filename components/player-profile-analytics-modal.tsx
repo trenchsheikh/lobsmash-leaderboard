@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { sendFriendRequestToUserId } from "@/app/actions/friends";
 import { useSupabaseBrowser } from "@/lib/supabase/client";
@@ -33,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Props = {
   open: boolean;
@@ -312,8 +314,8 @@ export function PlayerProfileAnalyticsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(92vh,48rem)] w-full max-w-lg overflow-y-auto border-border/80 bg-card p-0 sm:max-w-xl">
-        <DialogHeader className="border-b border-border/60 bg-muted/20 px-4 py-4 sm:px-6">
+      <DialogContent className="flex max-h-[min(92vh,48rem)] w-full max-w-lg flex-col overflow-hidden border-border/80 bg-card p-0 sm:max-w-xl">
+        <DialogHeader className="shrink-0 border-b border-border/60 bg-muted/20 px-4 py-4 sm:px-6">
           <DialogTitle className="font-heading text-lg">Player profile</DialogTitle>
           <DialogDescription className="text-xs">
             Self-reported style and global skill from completed sessions. League row includes
@@ -322,14 +324,17 @@ export function PlayerProfileAnalyticsModal({
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-            <Loader2 className="size-5 animate-spin" />
+          <div className="flex min-h-[12rem] flex-1 flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
+            <Spinner className="size-5" />
             Loading…
           </div>
         ) : error ? (
-          <p className="px-4 py-8 text-center text-sm text-destructive sm:px-6">{error}</p>
+          <p className="flex flex-1 items-center justify-center px-4 py-8 text-center text-sm text-destructive sm:px-6">
+            {error}
+          </p>
         ) : (
-          <div className="flex flex-col gap-6 px-4 py-5 sm:px-6">
+          <ScrollArea className="min-h-0 min-w-0 flex-1">
+            <div className="flex flex-col gap-6 px-4 py-5 sm:px-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
                 <UserAvatarDisplay
@@ -362,7 +367,7 @@ export function PlayerProfileAnalyticsModal({
                         onClick={() => void onAddFriend()}
                       >
                         {adding ? (
-                          <Loader2 className="size-3.5 animate-spin" />
+                          <Spinner className="size-3.5" />
                         ) : (
                           <UserPlus className="size-3.5" />
                         )}
@@ -477,7 +482,8 @@ export function PlayerProfileAnalyticsModal({
                 </p>
               ) : null}
             </div>
-          </div>
+            </div>
+          </ScrollArea>
         )}
       </DialogContent>
     </Dialog>

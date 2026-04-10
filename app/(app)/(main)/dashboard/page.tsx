@@ -198,7 +198,6 @@ export default async function DashboardPage() {
                           <span className="text-sm capitalize text-muted-foreground">{row.role}</span>
                           <Link
                             href={`/leagues/${row.leagueId}`}
-                            prefetch={false}
                             className={buttonVariants({ size: "sm", variant: "outline" })}
                           >
                             View
@@ -261,7 +260,6 @@ export default async function DashboardPage() {
                           <TableCell className="text-right">
                             <Link
                               href={`/leagues/${row.leagueId}`}
-                              prefetch={false}
                               className={buttonVariants({ size: "sm", variant: "outline" })}
                             >
                               View

@@ -2,14 +2,8 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Check,
-  Loader2,
-  Search,
-  UserMinus,
-  UserPlus,
-  X,
-} from "lucide-react";
+import { Check, Search, UserMinus, UserPlus, X } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import {
   acceptFriendRequest,
@@ -84,7 +78,7 @@ export function FriendSearch() {
       </div>
       {pending && debounced.length >= 2 ? (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="size-3.5 animate-spin" />
+          <Spinner className="size-3.5" />
           Searching…
         </p>
       ) : null}
@@ -129,7 +123,7 @@ export function FriendSearch() {
                   onClick={() => add(u)}
                 >
                   {adding === u.id ? (
-                    <Loader2 className="size-4 animate-spin" />
+                    <Spinner className="size-4" />
                   ) : (
                     <UserPlus className="size-4" />
                   )}
@@ -189,7 +183,7 @@ export function FriendRequestActions({
           disabled={pending}
           onClick={accept}
         >
-          {pending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+          {pending ? <Spinner className="size-4" /> : <Check className="size-4" />}
           Accept
         </Button>
         <Button
@@ -215,7 +209,7 @@ export function FriendRequestActions({
       disabled={pending}
       onClick={decline}
     >
-      {pending ? <Loader2 className="size-4 animate-spin" /> : "Cancel request"}
+      {pending ? <Spinner className="size-4" /> : "Cancel request"}
     </Button>
   );
 }
@@ -244,7 +238,7 @@ export function RemoveFriendButton({ friendshipId }: { friendshipId: string }) {
       }}
     >
       {pending ? (
-        <Loader2 className="size-4 animate-spin" />
+        <Spinner className="size-4" />
       ) : (
         <UserMinus className="size-4" />
       )}

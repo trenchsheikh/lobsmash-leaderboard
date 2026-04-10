@@ -19,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { DeleteLeagueButton } from "@/components/delete-league-button";
 import { LeaguePageTabs } from "@/components/league/league-page-tabs";
+import { displayFirstName } from "@/lib/display-name";
+import { MAX_SESSION_COURTS, MIN_SESSION_COURTS } from "@/lib/session-courts";
 
 export const dynamic = "force-dynamic";
 
@@ -271,11 +273,12 @@ export default async function LeaguePage({ params }: PageProps) {
       const ph = row.player_high as string;
       const n1 = pairPlayerMetaById.get(pl)?.name ?? "Player";
       const n2 = pairPlayerMetaById.get(ph)?.name ?? "Player";
-      const names = [n1, n2].sort((a, b) => a.localeCompare(b));
+      const sorted = [n1, n2].sort((a, b) => a.localeCompare(b));
+      const label = `${displayFirstName(sorted[0])} & ${displayFirstName(sorted[1])}`;
       return {
         player_low: pl,
         player_high: ph,
-        label: `${names[0]} & ${names[1]}`,
+        label,
         championship_wins: row.championship_wins as number,
         sessions_played: (row.sessions_played as number) ?? 0,
       };
@@ -336,7 +339,9 @@ export default async function LeaguePage({ params }: PageProps) {
 
   const lastCourtCount = (league as { last_court_count?: number | null }).last_court_count;
   const sessionWizardDefaultCourts =
-    typeof lastCourtCount === "number" && lastCourtCount >= 1 && lastCourtCount <= 12
+    typeof lastCourtCount === "number" &&
+    lastCourtCount >= MIN_SESSION_COURTS &&
+    lastCourtCount <= MAX_SESSION_COURTS
       ? lastCourtCount
       : 4;
 

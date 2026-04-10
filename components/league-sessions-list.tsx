@@ -107,7 +107,6 @@ export function LeagueSessionsList({
               <li key={s.id}>
                 <Link
                   href={`/leagues/${leagueId}/sessions/${s.id}`}
-                  prefetch={false}
                   className={cn(
                     "group flex w-full min-h-[4.25rem] items-start justify-between gap-3 px-4 py-3.5 text-left transition-colors",
                     "hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

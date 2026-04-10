@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 
 type AvatarCropDialogProps = {
@@ -129,7 +129,7 @@ export function AvatarCropDialog({
           >
             {working ? (
               <>
-                <Loader2 className="size-4 animate-spin" />
+                <Spinner className="size-4" />
                 Preparing…
               </>
             ) : (

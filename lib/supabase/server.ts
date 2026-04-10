@@ -1,6 +1,20 @@
 import { auth } from "@clerk/nextjs/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getClerkTokenForSupabase } from "@/lib/supabase/clerk-token";
+
+/**
+ * Server Supabase client authorized with a Clerk JWT already resolved for this request.
+ * Use inside `unstable_cache` / `"use cache"` callbacks where `auth()` is not allowed.
+ */
+export function createClientWithToken(accessTokenValue: string | null): SupabaseClient {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      accessToken: async () => accessTokenValue,
+    },
+  );
+}
 
 /**
  * Server Supabase client authorized with the Clerk session JWT.
@@ -10,11 +24,5 @@ import { getClerkTokenForSupabase } from "@/lib/supabase/clerk-token";
  */
 export async function createClient() {
   const { getToken } = await auth();
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      accessToken: async () => getClerkTokenForSupabase(getToken),
-    },
-  );
+  return createClientWithToken(await getClerkTokenForSupabase(getToken));
 }

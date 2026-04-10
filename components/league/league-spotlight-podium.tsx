@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
-import { WinnerAvatarFrame } from "@/components/winner-avatar-frame";
 import { cn } from "@/lib/utils";
 
 export type SpotlightPlayer = {
@@ -175,47 +174,27 @@ function PlayerPillar({
           {player.rank}
         </span>
       )}
-      {isFirst ? (
-        <WinnerAvatarFrame frameSize="spotlight">
-          <button
-            type="button"
-            className={cn(
-              "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
-              interactive && "cursor-pointer",
-            )}
-            onClick={() => onPlayerClick?.(player.playerId)}
-            disabled={!interactive}
-          >
-            <UserAvatarDisplay
-              name={player.name}
-              username={player.username}
-              avatarUrl={player.avatarUrl}
-              size="lg"
-            />
-          </button>
-        </WinnerAvatarFrame>
-      ) : (
-        <button
-          type="button"
-          className={cn(
-            "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
-            interactive && "cursor-pointer",
-          )}
-          onClick={() => onPlayerClick?.(player.playerId)}
-          disabled={!interactive}
-        >
-          <UserAvatarDisplay
-            name={player.name}
-            username={player.username}
-            avatarUrl={player.avatarUrl}
-            size="lg"
-          />
-        </button>
-      )}
       <button
         type="button"
         className={cn(
-          "mt-2 w-full truncate px-0.5 text-sm font-semibold leading-tight",
+          "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
+          interactive && "cursor-pointer",
+          isFirst && "ring-2 ring-amber-500/40 ring-offset-2 ring-offset-background",
+        )}
+        onClick={() => onPlayerClick?.(player.playerId)}
+        disabled={!interactive}
+      >
+        <UserAvatarDisplay
+          name={player.name}
+          username={player.username}
+          avatarUrl={player.avatarUrl}
+          size="lg"
+        />
+      </button>
+      <button
+        type="button"
+        className={cn(
+          "mt-2 w-full min-w-0 px-0.5 text-sm font-semibold leading-snug break-words",
           interactive && "cursor-pointer hover:underline",
         )}
         onClick={() => onPlayerClick?.(player.playerId)}
@@ -224,7 +203,7 @@ function PlayerPillar({
         {player.name}
       </button>
       {player.username ? (
-        <p className="truncate text-xs text-muted-foreground">@{player.username}</p>
+        <p className="max-w-full break-all text-xs text-muted-foreground">@{player.username}</p>
       ) : (
         <span className="h-4" aria-hidden />
       )}
@@ -295,96 +274,54 @@ function PairPillar({
           {pair.rank}
         </span>
       )}
-      {isFirst ? (
-        <WinnerAvatarFrame variant="pair" frameSize="spotlight">
-          <div className="flex shrink-0 justify-center gap-1">
-            <button
-              type="button"
-              className={cn(
-                "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
-                interactive && "cursor-pointer",
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                onPlayerClick?.(pair.p1.playerId);
-              }}
-              disabled={!interactive}
-            >
-              <UserAvatarDisplay
-                name={pair.p1.name}
-                username={pair.p1.username}
-                avatarUrl={pair.p1.avatarUrl}
-                size="default"
-                className="size-11 sm:size-12"
-              />
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
-                interactive && "cursor-pointer",
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                onPlayerClick?.(pair.p2.playerId);
-              }}
-              disabled={!interactive}
-            >
-              <UserAvatarDisplay
-                name={pair.p2.name}
-                username={pair.p2.username}
-                avatarUrl={pair.p2.avatarUrl}
-                size="default"
-                className="size-11 sm:size-12"
-              />
-            </button>
-          </div>
-        </WinnerAvatarFrame>
-      ) : (
-        <div className="flex shrink-0 justify-center gap-1">
-          <button
-            type="button"
-            className={cn(
-              "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
-              interactive && "cursor-pointer",
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              onPlayerClick?.(pair.p1.playerId);
-            }}
-            disabled={!interactive}
-          >
-            <UserAvatarDisplay
-              name={pair.p1.name}
-              username={pair.p1.username}
-              avatarUrl={pair.p1.avatarUrl}
-              size="default"
-              className="size-11 sm:size-12"
-            />
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
-              interactive && "cursor-pointer",
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              onPlayerClick?.(pair.p2.playerId);
-            }}
-            disabled={!interactive}
-          >
-            <UserAvatarDisplay
-              name={pair.p2.name}
-              username={pair.p2.username}
-              avatarUrl={pair.p2.avatarUrl}
-              size="default"
-              className="size-11 sm:size-12"
-            />
-          </button>
-        </div>
-      )}
-      <p className="mt-2 line-clamp-2 w-full px-0.5 text-xs font-semibold leading-tight sm:text-sm">
+      <div
+        className={cn(
+          "flex shrink-0 justify-center gap-1",
+          isFirst && "rounded-full p-1 ring-2 ring-amber-500/40 ring-offset-2 ring-offset-background",
+        )}
+      >
+        <button
+          type="button"
+          className={cn(
+            "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
+            interactive && "cursor-pointer",
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlayerClick?.(pair.p1.playerId);
+          }}
+          disabled={!interactive}
+        >
+          <UserAvatarDisplay
+            name={pair.p1.name}
+            username={pair.p1.username}
+            avatarUrl={pair.p1.avatarUrl}
+            size="default"
+            className="size-11 sm:size-12"
+          />
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30",
+            interactive && "cursor-pointer",
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlayerClick?.(pair.p2.playerId);
+          }}
+          disabled={!interactive}
+        >
+          <UserAvatarDisplay
+            name={pair.p2.name}
+            username={pair.p2.username}
+            avatarUrl={pair.p2.avatarUrl}
+            size="default"
+            className="size-11 sm:size-12"
+          />
+        </button>
+      </div>
+      <p className="mt-2 w-full px-0.5 text-xs font-semibold leading-snug break-words sm:text-sm">
         {pair.label}
       </p>
       <div className="mt-3 grid w-full grid-cols-2 gap-1 border-t border-border/50 pt-3">

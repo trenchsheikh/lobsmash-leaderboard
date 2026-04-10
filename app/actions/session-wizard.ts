@@ -7,6 +7,7 @@ import {
   applySkillRatingAfterCompletedEdit,
   reverseSkillRatingIfCompleted,
 } from "@/lib/session-skill-rating";
+import { MAX_SESSION_COURTS, MIN_SESSION_COURTS } from "@/lib/session-courts";
 
 export type InputMode = "full" | "champ_court_only";
 
@@ -42,8 +43,8 @@ export async function createSessionDraft(
   if (!dateRaw) return { error: "Date is required." };
 
   const n = Number(input.numCourts);
-  if (!Number.isInteger(n) || n < 1 || n > 12) {
-    return { error: "Number of courts must be 1–12." };
+  if (!Number.isInteger(n) || n < MIN_SESSION_COURTS || n > MAX_SESSION_COURTS) {
+    return { error: `Number of courts must be ${MIN_SESSION_COURTS}–${MAX_SESSION_COURTS}.` };
   }
 
   const { data: league, error: lErr } = await supabase
@@ -181,8 +182,8 @@ export async function updateSessionDraftMeta(
   if (!dateRaw) return { error: "Date is required." };
 
   const n = Number(input.numCourts);
-  if (!Number.isInteger(n) || n < 1 || n > 12) {
-    return { error: "Number of courts must be 1–12." };
+  if (!Number.isInteger(n) || n < MIN_SESSION_COURTS || n > MAX_SESSION_COURTS) {
+    return { error: `Number of courts must be ${MIN_SESSION_COURTS}–${MAX_SESSION_COURTS}.` };
   }
 
   const { data: session, error: sErr } = await supabase
@@ -332,6 +333,13 @@ export async function upsertSessionTeams(
 
   const appErr = await applySkillRatingAfterCompletedEdit(supabase, sid, wasCompleted);
   if (appErr) return { error: appErr };
+
+  const { error: syncNErr } = await supabase.rpc("sync_session_partner_notifications", {
+    p_session_id: sid,
+  });
+  if (syncNErr) {
+    console.error("sync_session_partner_notifications", syncNErr.message);
+  }
 
   revalidatePath(`/leagues/${lid}/sessions/${sid}`);
   revalidatePath(`/leagues/${lid}`);

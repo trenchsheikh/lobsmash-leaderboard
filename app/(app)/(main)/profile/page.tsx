@@ -7,9 +7,8 @@ import {
   labelForExperience,
   labelForPlaystyle,
   labelForSide,
-  labelForStrength,
-  labelForWeakness,
 } from "@/lib/onboarding-options";
+import { computeRadarFromProfile } from "@/lib/player-radar-scores";
 import {
   Card,
   CardContent,
@@ -17,9 +16,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { ProfileEditSheet } from "@/components/profile-edit-sheet";
+import { ProfilePlaystyleRadarPanel } from "@/components/profile-playstyle-radar-panel";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
 import { ProfileRatingPanel } from "@/components/profile-rating-panel";
 import { DEFAULT_SKILL } from "@/lib/rating";
@@ -97,6 +96,13 @@ export default async function ProfilePage() {
     rated_games: h.rated_games as number,
   }));
 
+  const radarBaseline = computeRadarFromProfile({
+    playstyle: player.playstyle,
+    strengths,
+    weaknesses,
+    experience_level: player.experience_level,
+  });
+
   return (
     <div className="flex flex-col gap-7">
       <PageHeader
@@ -141,100 +147,29 @@ export default async function ProfilePage() {
         updatedAtIso={(ratingRow?.updated_at as string | null) ?? null}
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-border/80 lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Account</CardTitle>
-            <CardDescription>Managed by your sign-in provider.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid gap-3 sm:grid-cols-[120px_1fr] sm:gap-x-4">
-              <dt className="text-sm text-muted-foreground">Email</dt>
-              <dd className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 font-mono text-sm">
-                {email}
-              </dd>
-            </dl>
-          </CardContent>
-        </Card>
+      <ProfilePlaystyleRadarPanel
+        baseline={radarBaseline}
+        playstyleLabel={labelForPlaystyle(player.playstyle) || "—"}
+        sideLabel={labelForSide(player.preferred_side) || "—"}
+        experienceLabel={labelForExperience(player.experience_level) || "—"}
+        strengths={strengths}
+        weaknesses={weaknesses}
+      />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Play style</CardTitle>
-            <CardDescription>Your on-court identity.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Style
-              </p>
-              <p className="mt-1 text-base font-medium">
-                {labelForPlaystyle(player.playstyle) || "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Preferred side
-              </p>
-              <p className="mt-1 text-base font-medium">
-                {labelForSide(player.preferred_side) || "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Experience
-              </p>
-              <p className="mt-1 text-base font-medium">
-                {labelForExperience(player.experience_level) || "—"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Strengths & growth</CardTitle>
-            <CardDescription>What you bring—and what you’re working on.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Strengths
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {strengths.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">—</span>
-                ) : (
-                  strengths.map((s) => (
-                    <Badge key={s} variant="secondary" className="font-normal">
-                      {labelForStrength(s)}
-                    </Badge>
-                  ))
-                )}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Areas to grow
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {weaknesses.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">—</span>
-                ) : (
-                  weaknesses.map((w) => (
-                    <Badge
-                      key={w}
-                      variant="outline"
-                      className="border-amber-400/40 bg-amber-500/10 font-normal dark:border-amber-500/30"
-                    >
-                      {labelForWeakness(w)}
-                    </Badge>
-                  ))
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader>
+          <CardTitle className="font-heading text-lg">Account</CardTitle>
+          <CardDescription>Managed by your sign-in provider.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-3 sm:grid-cols-[120px_1fr] sm:gap-x-4">
+            <dt className="text-sm text-muted-foreground">Email</dt>
+            <dd className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 font-mono text-sm">
+              {email}
+            </dd>
+          </dl>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -2,7 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Loader2, Trash2 } from "lucide-react";
+import { Camera, Trash2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { removeAvatar, uploadAvatar } from "@/app/actions/avatar";
 import { AvatarCropDialog } from "@/components/avatar-crop-dialog";
@@ -151,7 +152,7 @@ export function ProfileAvatarField({
               onClick={() => inputRef.current?.click()}
             >
               {pending ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Spinner className="size-4" />
               ) : (
                 <Camera className="size-4" />
               )}

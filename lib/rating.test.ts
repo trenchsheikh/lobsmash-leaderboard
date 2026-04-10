@@ -14,6 +14,7 @@ import {
   expectedTeamWinProbability,
   expectedWinForSides,
   skillForPlayer,
+  formatDisplayLevel,
   skillToDisplayLevel,
 } from "./rating";
 
@@ -100,5 +101,30 @@ describe("skillToDisplayLevel", () => {
   it("maps band edges to 0 and 7", () => {
     expect(skillToDisplayLevel(DISPLAY_SKILL_MIN)).toBe(0);
     expect(skillToDisplayLevel(DISPLAY_SKILL_MAX)).toBe(7);
+  });
+
+  it("rounds the 0–7 scale to two decimal places", () => {
+    const mid = (DISPLAY_SKILL_MIN + DISPLAY_SKILL_MAX) / 2;
+    expect(skillToDisplayLevel(mid)).toBe(3.5);
+  });
+});
+
+describe("formatDisplayLevel", () => {
+  it("uses two decimals when hundredths are non-zero", () => {
+    const skill =
+      DISPLAY_SKILL_MIN + (DISPLAY_SKILL_MAX - DISPLAY_SKILL_MIN) * (3.46 / 7);
+    expect(formatDisplayLevel(skill)).toMatch(/^\d+\.\d{2}$/);
+  });
+
+  it("uses one decimal when hundredths digit is zero", () => {
+    expect(formatDisplayLevel(DISPLAY_SKILL_MIN)).toBe("0.0");
+    const mid = (DISPLAY_SKILL_MIN + DISPLAY_SKILL_MAX) / 2;
+    expect(formatDisplayLevel(mid)).toBe("3.5");
+    expect(formatDisplayLevel(DISPLAY_SKILL_MAX)).toBe("7.0");
+  });
+
+  it("returns em dash for non-finite skill", () => {
+    expect(formatDisplayLevel(Number.NaN)).toBe("—");
+    expect(formatDisplayLevel(Number.POSITIVE_INFINITY)).toBe("—");
   });
 });

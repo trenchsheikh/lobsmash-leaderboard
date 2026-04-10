@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { LeagueFormat, SessionInputMode } from "@/lib/league-format";
+import { cn } from "@/lib/utils";
 import type { LeaderboardRow, PairChampionshipRow } from "@/lib/leaderboard";
 import { DEFAULT_SKILL, formatDisplayLevel } from "@/lib/rating";
 import { useSupabaseBrowser } from "@/lib/supabase/client";
@@ -13,7 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/lib/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
-import { WinnerAvatarFrame } from "@/components/winner-avatar-frame";
+import {
+  LeaguePairStandingsBoard,
+  LeaguePlayerStandingsBoard,
+} from "@/components/league/league-standings-board";
 import {
   Card,
   CardContent,
@@ -36,19 +42,39 @@ import { CopyTextButton } from "@/components/copy-text-button";
 import { PendingJoinRequestsList } from "@/components/pending-join-requests-list";
 import { UpdateLeagueCodeForm } from "@/components/update-league-code-form";
 import { LeagueSessionsList, type LeagueSessionRow } from "@/components/league-sessions-list";
+import { LeagueOverviewSummary } from "@/components/league/league-overview-summary";
 import { LeagueSpotlightPodium } from "@/components/league/league-spotlight-podium";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   SessionCreateWizard,
   type RosterPlayer,
 } from "@/components/session-create-wizard";
-const tableScroll = "max-h-[min(70vh,44rem)] overflow-auto rounded-md border border-border/50";
+import { ListPagination } from "@/components/list-pagination";
+import { PAGE_SIZE, slicePage } from "@/lib/paginate";
+
+const tableScroll =
+  "max-h-[min(70vh,44rem)] overflow-auto rounded-md border border-border/50";
+const tableBorderOnly = "rounded-md border border-border/50";
+
+type PairModalSection = "team" | "low" | "high";
 
 export type LeaguePageTabsProps = {
   leagueId: string;
@@ -99,7 +125,7 @@ export type LeaguePageTabsProps = {
   sessionsErr: { message: string } | null;
   leaderboard: LeaderboardRow[];
   pairLeaderboard: PairChampionshipRow[];
-  /** When set (admins), "Create session" opens the wizard in a dialog on this page. */
+  /** When set (admins), "Create session" opens the wizard in a sheet on this page. */
   newSessionWizard?: {
     roster: RosterPlayer[];
     defaultCourts: number;
@@ -152,10 +178,81 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
   });
 
   const [tab, setTab] = useState("overview");
+  const [membersPage, setMembersPage] = useState(1);
+  const [rosterPage, setRosterPage] = useState(1);
+
+  const {
+    slice: memberRowsPage,
+    totalPages: membersTotalPages,
+    safePage: membersSafePage,
+  } = slicePage(memberRows, membersPage, PAGE_SIZE);
+  const paginateMembers = memberRows.length > PAGE_SIZE;
+
+  const {
+    slice: rosterDisplayPage,
+    totalPages: rosterTotalPages,
+    safePage: rosterSafePage,
+  } = slicePage(rosterDisplay, rosterPage, PAGE_SIZE);
+  const paginateRoster = rosterDisplay.length > PAGE_SIZE;
+
+  useEffect(() => {
+    setMembersPage(1);
+  }, [memberRows.length, leagueId]);
+
+  useEffect(() => {
+    if (membersSafePage !== membersPage) setMembersPage(membersSafePage);
+  }, [membersSafePage, membersPage]);
+
+  useEffect(() => {
+    setRosterPage(1);
+  }, [rosterDisplay.length, leagueId]);
+
+  useEffect(() => {
+    if (rosterSafePage !== rosterPage) setRosterPage(rosterSafePage);
+  }, [rosterSafePage, rosterPage]);
+
+  const router = useRouter();
   const [createSessionOpen, setCreateSessionOpen] = useState(false);
   const [wizardMountKey, setWizardMountKey] = useState(0);
+  const [createFlowPhase, setCreateFlowPhase] = useState<"wizard" | "saved">("wizard");
+  const [lastCreatedSession, setLastCreatedSession] = useState<{
+    id: string;
+    date: string;
+  } | null>(null);
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+
+  const handleSheetOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setCreateSessionOpen(true);
+        return;
+      }
+      if (createFlowPhase === "wizard" && draftDirty) {
+        setDiscardConfirmOpen(true);
+        return;
+      }
+      setCreateSessionOpen(false);
+      setCreateFlowPhase("wizard");
+      setLastCreatedSession(null);
+      setDraftDirty(false);
+    },
+    [createFlowPhase, draftDirty],
+  );
+
+  const confirmDiscardCreateSession = useCallback(() => {
+    setDiscardConfirmOpen(false);
+    setCreateSessionOpen(false);
+    setCreateFlowPhase("wizard");
+    setLastCreatedSession(null);
+    setDraftDirty(false);
+  }, []);
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
   const [selectedPair, setSelectedPair] = useState<PairChampionshipRow | null>(null);
+  const [pairModalSection, setPairModalSection] = useState<PairModalSection>("team");
+
+  const currentUserPlayerId =
+    memberRows.find((m) => m.user_id === currentUserId)?.player_id ?? null;
 
   const openPlayerProfile = useCallback((playerId: string, isGuest?: boolean) => {
     if (isGuest) {
@@ -183,38 +280,23 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
       const pl = low < high ? low : high;
       const ph = low < high ? high : low;
       const row = pairLeaderboard.find((r) => r.player_low === pl && r.player_high === ph);
-      if (row) setSelectedPair(row);
-      else toast.message("Team stats aren’t available for this pair yet.");
+      if (row) {
+        setPairModalSection("team");
+        setSelectedPair(row);
+      } else toast.message("Team stats aren’t available for this pair yet.");
     },
     [pairLeaderboard],
   );
 
-  function playerLeaderNameCell(row: LeaderboardRow, idx: number) {
-    const roster = rosterDisplay.find((r) => r.id === row.player_id);
-    const avatarUrl = row.avatar_url ?? roster?.avatar_url ?? null;
-    const username = row.username ?? roster?.username ?? null;
-    const isGuest = roster?.isGuest ?? false;
-    const av = (
-      <UserAvatarDisplay
-        name={row.name}
-        username={username}
-        avatarUrl={avatarUrl}
-        size="sm"
-      />
-    );
-    return (
-      <div className="flex min-w-0 items-center gap-2">
-        <button
-          type="button"
-          className="flex min-w-0 items-center gap-2 rounded-md text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={() => openPlayerProfile(row.player_id, isGuest)}
-        >
-          {idx === 0 ? <WinnerAvatarFrame>{av}</WinnerAvatarFrame> : av}
-          <span className="min-w-0 font-medium">{row.name}</span>
-        </button>
-      </div>
-    );
-  }
+  const openPairAsTeam = useCallback((row: PairChampionshipRow) => {
+    setPairModalSection("team");
+    setSelectedPair(row);
+  }, []);
+
+  const openPairWithPlayer = useCallback((row: PairChampionshipRow, which: "low" | "high") => {
+    setPairModalSection(which);
+    setSelectedPair(row);
+  }, []);
 
   const podiumSpotlight =
     leagueResultsMode === "champ_court_only"
@@ -256,6 +338,15 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
               : "Draft session(s) in progress — add scores to see standings and skill preview update."}
           </p>
         ) : null}
+        <LeagueOverviewSummary
+          rosterDisplay={rosterDisplay}
+          rosterSkillByPlayerId={rosterSkillByPlayerId}
+          leaderboard={leaderboard}
+          leagueResultsMode={leagueResultsMode}
+          skillPreviewDelta={skillPreviewDelta}
+          hasDraftSessions={hasDraftSessions}
+          memberRows={memberRows}
+        />
         <LeagueSpotlightPodium {...podiumSpotlight} />
       </TabsContent>
 
@@ -278,93 +369,18 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {pairLeaderboard.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No pair stats yet — complete a session with court 1 win counts for each team.
-                  </p>
-                ) : (
-                  <div className={tableScroll}>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">#</TableHead>
-                          <TableHead>Pair</TableHead>
-                          <TableHead className="text-right">Sessions</TableHead>
-                          <TableHead className="text-right">Champ wins</TableHead>
-                          <TableHead className="text-right">Avg wins/session</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {pairLeaderboard.map((row, idx) => {
-                          const avgWinsPerSession =
-                            row.sessions_played > 0
-                              ? (row.championship_wins / row.sessions_played).toFixed(1)
-                              : "—";
-                          const pLow = pairPlayerMetaById[row.player_low];
-                          const pHigh = pairPlayerMetaById[row.player_high];
-                          const gLow = rosterDisplay.find((r) => r.id === row.player_low)?.isGuest;
-                          const gHigh = rosterDisplay.find((r) => r.id === row.player_high)?.isGuest;
-                          const avatars = (
-                            <div className="flex shrink-0 gap-0.5">
-                              <button
-                                type="button"
-                                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openPlayerProfile(row.player_low, Boolean(gLow));
-                                }}
-                              >
-                                <UserAvatarDisplay
-                                  name={pLow?.name ?? "—"}
-                                  username={pLow?.username}
-                                  avatarUrl={pLow?.avatar_url}
-                                  size="sm"
-                                />
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openPlayerProfile(row.player_high, Boolean(gHigh));
-                                }}
-                              >
-                                <UserAvatarDisplay
-                                  name={pHigh?.name ?? "—"}
-                                  username={pHigh?.username}
-                                  avatarUrl={pHigh?.avatar_url}
-                                  size="sm"
-                                />
-                              </button>
-                            </div>
-                          );
-                          return (
-                            <TableRow
-                              key={`${row.player_low}-${row.player_high}`}
-                              className="cursor-pointer transition-colors hover:bg-muted/40"
-                              onClick={() => setSelectedPair(row)}
-                            >
-                              <TableCell>{idx + 1}</TableCell>
-                              <TableCell>
-                                <div className="flex min-w-0 items-center gap-2">
-                                  {idx === 0 ? (
-                                    <WinnerAvatarFrame variant="pair">{avatars}</WinnerAvatarFrame>
-                                  ) : (
-                                    avatars
-                                  )}
-                                  <span className="min-w-0 font-medium">{row.label}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums">{row.sessions_played}</TableCell>
-                              <TableCell className="text-right tabular-nums">{row.championship_wins}</TableCell>
-                              <TableCell className="text-right tabular-nums">{avgWinsPerSession}</TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                <LeaguePairStandingsBoard
+                  leagueId={leagueId}
+                  title="Championship pairs"
+                  subtitle="Fixed pairs ranked by court 1 wins from completed sessions. Tap a row for team stats, or an avatar to jump to that player’s tab."
+                  variant="embedded"
+                  pairLeaderboard={pairLeaderboard}
+                  pairPlayerMetaById={pairPlayerMetaById}
+                  rosterDisplay={rosterDisplay}
+                  currentPlayerId={currentUserPlayerId}
+                  onPairRowClick={openPairAsTeam}
+                  onPairFocusPlayer={openPairWithPlayer}
+                />
               </CardContent>
             </Card>
 
@@ -382,40 +398,19 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {leaderboard.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Play some games to populate stats.</p>
-                ) : (
-                  <div className={tableScroll}>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">#</TableHead>
-                          <TableHead>Player</TableHead>
-                          <TableHead className="text-right">Sessions</TableHead>
-                          <TableHead className="text-right">Wins</TableHead>
-                          <TableHead className="text-right">Avg wins/session</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {leaderboard.map((row, idx) => {
-                          const avgWinsPerSession =
-                            row.sessions_played > 0
-                              ? (row.total_wins / row.sessions_played).toFixed(1)
-                              : "—";
-                          return (
-                            <TableRow key={row.player_id}>
-                              <TableCell>{idx + 1}</TableCell>
-                              <TableCell>{playerLeaderNameCell(row, idx)}</TableCell>
-                              <TableCell className="text-right tabular-nums">{row.sessions_played}</TableCell>
-                              <TableCell className="text-right tabular-nums">{row.total_wins}</TableCell>
-                              <TableCell className="text-right tabular-nums">{avgWinsPerSession}</TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                <LeaguePlayerStandingsBoard
+                  leagueId={leagueId}
+                  title="Player leaderboard"
+                  subtitle="Individual totals across completed sessions. Score is wins; win rate uses wins per session."
+                  variant="embedded"
+                  leaderboard={leaderboard}
+                  mode="champ_secondary"
+                  currentPlayerId={currentUserPlayerId}
+                  rosterDisplay={rosterDisplay}
+                  rosterSkillByPlayerId={rosterSkillByPlayerId}
+                  skillPreviewDelta={skillPreviewDelta}
+                  onPlayerClick={openPlayerProfile}
+                />
               </CardContent>
             </Card>
           </>
@@ -444,72 +439,23 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {leaderboard.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Play some games to populate stats.</p>
-                ) : (
-                  <div className={tableScroll}>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">#</TableHead>
-                          <TableHead>Player</TableHead>
-                          {playerLeaderboardSummitStyle ? (
-                            <>
-                              <TableHead className="text-right">Sessions</TableHead>
-                              <TableHead className="text-right">Wins</TableHead>
-                              <TableHead className="text-right">Avg wins/session</TableHead>
-                            </>
-                          ) : (
-                            <>
-                              <TableHead className="text-right">Court1 W</TableHead>
-                              <TableHead className="text-right">Wins</TableHead>
-                              <TableHead className="text-right">Games</TableHead>
-                              <TableHead className="text-right">Points</TableHead>
-                              <TableHead className="text-right">Win rate</TableHead>
-                            </>
-                          )}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {leaderboard.map((row, idx) => {
-                          const avgWinsPerSession =
-                            row.sessions_played > 0
-                              ? (row.total_wins / row.sessions_played).toFixed(1)
-                              : "—";
-                          const winRate =
-                            row.total_games > 0
-                              ? `${Math.round((row.total_wins / row.total_games) * 100)}%`
-                              : "—";
-                          return (
-                            <TableRow key={row.player_id}>
-                              <TableCell>{idx + 1}</TableCell>
-                              <TableCell>{playerLeaderNameCell(row, idx)}</TableCell>
-                              {playerLeaderboardSummitStyle ? (
-                                <>
-                                  <TableCell className="text-right tabular-nums">
-                                    {row.sessions_played}
-                                  </TableCell>
-                                  <TableCell className="text-right tabular-nums">{row.total_wins}</TableCell>
-                                  <TableCell className="text-right tabular-nums">
-                                    {avgWinsPerSession}
-                                  </TableCell>
-                                </>
-                              ) : (
-                                <>
-                                  <TableCell className="text-right tabular-nums">{row.court1_wins}</TableCell>
-                                  <TableCell className="text-right tabular-nums">{row.total_wins}</TableCell>
-                                  <TableCell className="text-right tabular-nums">{row.total_games}</TableCell>
-                                  <TableCell className="text-right tabular-nums">{row.total_points}</TableCell>
-                                  <TableCell className="text-right tabular-nums">{winRate}</TableCell>
-                                </>
-                              )}
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                <LeaguePlayerStandingsBoard
+                  leagueId={leagueId}
+                  title="Player leaderboard"
+                  subtitle={
+                    playerLeaderboardSummitStyle
+                      ? "Individual totals across completed sessions. Score is wins; games and win rate use recorded games."
+                      : "Americano: score is total points; games and win rate use every recorded game."
+                  }
+                  variant="embedded"
+                  leaderboard={leaderboard}
+                  mode={playerLeaderboardSummitStyle ? "summit" : "americano"}
+                  currentPlayerId={currentUserPlayerId}
+                  rosterDisplay={rosterDisplay}
+                  rosterSkillByPlayerId={rosterSkillByPlayerId}
+                  skillPreviewDelta={skillPreviewDelta}
+                  onPlayerClick={openPlayerProfile}
+                />
               </CardContent>
             </Card>
 
@@ -573,7 +519,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
             <CardDescription>Roles control who can edit sessions and scores.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className={tableScroll}>
+            <div className={paginateMembers ? tableBorderOnly : tableScroll}>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -582,7 +528,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {memberRows.map((m) => (
+                  {memberRowsPage.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell>
                         <button
@@ -621,6 +567,13 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                 </TableBody>
               </Table>
             </div>
+            {paginateMembers ? (
+              <ListPagination
+                currentPage={membersSafePage}
+                totalPages={membersTotalPages}
+                onPageChange={setMembersPage}
+              />
+            ) : null}
           </CardContent>
         </Card>
 
@@ -636,8 +589,14 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
             {rosterDisplay.length === 0 ? (
               <p className="text-sm text-muted-foreground">No players linked yet.</p>
             ) : (
-              <ul className="grid max-h-[min(60vh,36rem)] gap-2 overflow-y-auto sm:grid-cols-2">
-                {rosterDisplay.map((p) => {
+              <>
+              <ul
+                className={cn(
+                  "grid gap-2 sm:grid-cols-2",
+                  !paginateRoster && "max-h-[min(60vh,36rem)] overflow-y-auto",
+                )}
+              >
+                {rosterDisplayPage.map((p) => {
                   const preview = formatSkillDelta(skillPreviewDelta.get(p.id) ?? 0);
                   return (
                     <li
@@ -694,6 +653,14 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   );
                 })}
               </ul>
+              {paginateRoster ? (
+                <ListPagination
+                  currentPage={rosterSafePage}
+                  totalPages={rosterTotalPages}
+                  onPageChange={setRosterPage}
+                />
+              ) : null}
+              </>
             )}
           </CardContent>
         </Card>
@@ -717,39 +684,98 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   className={buttonVariants({ className: "w-fit" })}
                   onClick={() => {
                     setWizardMountKey((k) => k + 1);
+                    setCreateFlowPhase("wizard");
+                    setLastCreatedSession(null);
+                    setDraftDirty(false);
                     setCreateSessionOpen(true);
                   }}
                 >
                   Create session
                 </button>
-                <Dialog open={createSessionOpen} onOpenChange={setCreateSessionOpen}>
-                  <DialogContent
+                <Sheet open={createSessionOpen} onOpenChange={handleSheetOpenChange}>
+                  <SheetContent
+                    side="right"
                     showCloseButton
-                    className="max-h-[min(90vh,52rem)] w-full max-w-2xl gap-0 overflow-y-auto p-0 sm:max-w-2xl"
+                    className="flex h-full max-h-[100dvh] w-full flex-col gap-0 border-l p-0 sm:max-w-2xl"
                   >
-                    <DialogHeader className="border-b border-border/80 px-4 py-4 sm:px-6">
-                      <DialogTitle className="font-heading text-lg">New session</DialogTitle>
-                      <DialogDescription>
-                        Set up teams, courts, and results. Nothing is stored until you click{" "}
-                        <span className="font-medium text-foreground">Save draft</span>
-                        —then you&apos;ll open the session editor to continue.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="px-4 py-4 sm:px-6">
-                      <SessionCreateWizard
-                        key={wizardMountKey}
-                        leagueId={leagueId}
-                        sessionId={null}
-                        defaultCourts={newSessionWizard.defaultCourts}
-                        roster={newSessionWizard.roster}
-                        leagueResultsMode={leagueResultsMode}
-                        initialNumCourts={newSessionWizard.defaultCourts}
-                        skillsByPlayerId={rosterSkillByPlayerId}
-                        sessionCompletionStatus="draft"
-                      />
+                    <SheetHeader className="shrink-0 border-b border-border/80 px-4 py-4 sm:px-6">
+                      <SheetTitle className="font-heading text-lg">
+                        {createFlowPhase === "saved" ? "Draft saved" : "New session"}
+                      </SheetTitle>
+                      <SheetDescription>
+                        {createFlowPhase === "saved" ? (
+                          <>
+                            Your session is stored as a draft. Open the editor anytime to finish teams,
+                            results, or mark it complete.
+                          </>
+                        ) : (
+                          <>Add teams, courts, and results—then use Save draft at the bottom to keep this session.</>
+                        )}
+                      </SheetDescription>
+                    </SheetHeader>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                      {createFlowPhase === "wizard" ? (
+                        <SessionCreateWizard
+                          key={wizardMountKey}
+                          leagueId={leagueId}
+                          sessionId={null}
+                          defaultCourts={newSessionWizard.defaultCourts}
+                          roster={newSessionWizard.roster}
+                          leagueResultsMode={leagueResultsMode}
+                          initialNumCourts={newSessionWizard.defaultCourts}
+                          skillsByPlayerId={rosterSkillByPlayerId}
+                          sessionCompletionStatus="draft"
+                          onDraftDirtyChange={setDraftDirty}
+                          onFirstDraftSaved={({ sessionId, date: savedDate }) => {
+                            setLastCreatedSession({ id: sessionId, date: savedDate });
+                            setCreateFlowPhase("saved");
+                            setDraftDirty(false);
+                            router.refresh();
+                          }}
+                        />
+                      ) : lastCreatedSession ? (
+                        <div className="flex flex-col gap-4">
+                          <p className="text-sm text-muted-foreground">
+                            Session date:{" "}
+                            <span className="font-medium text-foreground">{lastCreatedSession.date}</span>
+                          </p>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                            <Link
+                              href={`/leagues/${leagueId}/sessions/${lastCreatedSession.id}/edit`}
+                              className={buttonVariants({ className: "w-fit" })}
+                            >
+                              Open session editor
+                            </Link>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
-                  </DialogContent>
-                </Dialog>
+                    {createFlowPhase === "saved" ? (
+                      <SheetFooter className="shrink-0 border-t border-border/80">
+                        <SheetClose render={<Button variant="outline" className="w-full sm:w-auto" />}>
+                          Close
+                        </SheetClose>
+                      </SheetFooter>
+                    ) : null}
+                  </SheetContent>
+                </Sheet>
+                <AlertDialog open={discardConfirmOpen} onOpenChange={setDiscardConfirmOpen}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Discard unsaved session?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        You have changes that are not saved to the database yet. If you leave now, this
+                        draft will be lost.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Keep editing</AlertDialogCancel>
+                      <Button variant="destructive" onClick={confirmDiscardCreateSession}>
+                        Discard
+                      </Button>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </>
             ) : null}
             {sessionsErr ? (
@@ -832,10 +858,16 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
       <PairTeamStatsModal
         open={selectedPair !== null}
         onOpenChange={(o) => {
-          if (!o) setSelectedPair(null);
+          if (!o) {
+            setSelectedPair(null);
+            setPairModalSection("team");
+          }
         }}
         pair={selectedPair}
         pairPlayerMetaById={pairPlayerMetaById}
+        leagueId={leagueId}
+        leagueFormat={leagueFormat}
+        initialSection={pairModalSection}
       />
     </Tabs>
   );

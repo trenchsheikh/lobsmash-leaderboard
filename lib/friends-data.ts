@@ -1,5 +1,11 @@
+import { auth } from "@clerk/nextjs/server";
+import { unstable_cache } from "next/cache";
 import { requireOnboarded } from "@/lib/auth/profile";
+import { friendsPageDataTag } from "@/lib/cache-tags";
 import type { FriendUserBrief, FriendshipListItem } from "@/lib/friends-types";
+import { getClerkTokenForSupabase } from "@/lib/supabase/clerk-token";
+import { createClientWithToken } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_SKILL } from "@/lib/rating";
 
 export type AggregatedFriendStat = {
@@ -16,11 +22,13 @@ export type AggregatedFriendStat = {
   total_points: number;
 };
 
-export async function loadFriendsPageData(): Promise<{
+async function loadFriendsPageDataUncached(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{
   friendships: FriendshipListItem[];
   leaderboard: AggregatedFriendStat[];
 }> {
-  const { supabase, user } = await requireOnboarded();
 
   const { data: rows, error: fErr } = await supabase
     .from("friendships")
@@ -33,7 +41,7 @@ export async function loadFriendsPageData(): Promise<{
   }
 
   const peerIds = rows.map((r) =>
-    r.user_a === user.id ? r.user_b : r.user_a,
+    r.user_a === userId ? r.user_b : r.user_a,
   );
   const uniquePeerIds = [...new Set(peerIds)];
 
@@ -54,7 +62,7 @@ export async function loadFriendsPageData(): Promise<{
   }
 
   const friendships: FriendshipListItem[] = rows.map((r) => {
-    const peerId = r.user_a === user.id ? r.user_b : r.user_a;
+    const peerId = r.user_a === userId ? r.user_b : r.user_a;
     const peer =
       userById.get(peerId) ?? {
         id: peerId,
@@ -77,7 +85,7 @@ export async function loadFriendsPageData(): Promise<{
     .filter((f) => f.status === "accepted")
     .map((f) => f.peer.id);
 
-  const leaderboardUserIds = [...new Set([user.id, ...acceptedFriendUserIds])];
+  const leaderboardUserIds = [...new Set([userId, ...acceptedFriendUserIds])];
 
   const { data: players } = await supabase
     .from("players")
@@ -168,4 +176,21 @@ export async function loadFriendsPageData(): Promise<{
   });
 
   return { friendships, leaderboard };
+}
+
+/** Cached friends feed + mini leaderboard; invalidated via `friendsPageDataTag` on mutations. */
+export async function loadFriendsPageData(): Promise<{
+  friendships: FriendshipListItem[];
+  leaderboard: AggregatedFriendStat[];
+}> {
+  const { user } = await requireOnboarded();
+  const { getToken } = await auth();
+  const token = await getClerkTokenForSupabase(getToken);
+  const supabase = createClientWithToken(token);
+
+  return unstable_cache(
+    async () => loadFriendsPageDataUncached(supabase, user.id),
+    ["friends-page", user.id],
+    { tags: [friendsPageDataTag(user.id)], revalidate: 120 },
+  )();
 }

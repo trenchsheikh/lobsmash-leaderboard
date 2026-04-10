@@ -236,7 +236,6 @@ export default async function SessionPage({ params }: PageProps) {
               <>
                 <Link
                   href={`/leagues/${leagueId}/sessions/${sessionId}/edit`}
-                  prefetch={false}
                   className={buttonVariants({ variant: "default", size: "sm" })}
                 >
                   Edit session
@@ -300,7 +299,6 @@ export default async function SessionPage({ params }: PageProps) {
             {!hasTeams || !teamsReady ? (
               <Link
                 href={`/leagues/${leagueId}/sessions/${sessionId}/edit`}
-                prefetch={false}
                 className={buttonVariants({ variant: "default", size: "default" })}
               >
                 Edit session
