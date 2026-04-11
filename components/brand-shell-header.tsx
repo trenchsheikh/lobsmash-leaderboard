@@ -16,7 +16,7 @@ export function BrandShellHeader({ subtitle, href = "/", className, centered }: 
   return (
     <header
       className={cn(
-        "sticky top-0 z-10 shrink-0 border-b border-border bg-background/95 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/90",
+        "relative z-10 shrink-0 border-b border-border bg-background/95 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/90",
         className,
       )}
     >

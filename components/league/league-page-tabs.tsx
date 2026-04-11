@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { LeagueFormat, SessionInputMode } from "@/lib/league-format";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,11 @@ import { LeagueAddRosterDropdown } from "@/components/league-add-roster-dropdown
 import { MemberRoleForm } from "@/components/member-role-form";
 import { LinkPlayerButton } from "@/components/link-player-button";
 import { CopyTextButton } from "@/components/copy-text-button";
+import { InviteLinkShareButton } from "@/components/invite-link-share-button";
+import {
+  buildLeagueInviteShareBody,
+  shareTitleForLeagueInvite,
+} from "@/lib/league-invite-share-text";
 import { PendingJoinRequestsList } from "@/components/pending-join-requests-list";
 import { UpdateLeagueCodeForm } from "@/components/update-league-code-form";
 import { LeagueSessionsList, type LeagueSessionRow } from "@/components/league-sessions-list";
@@ -83,6 +88,10 @@ type PairModalSection = "team" | "low" | "high";
 
 export type LeaguePageTabsProps = {
   leagueId: string;
+  leagueName: string;
+  leagueFormatLabel: string;
+  memberCount: number;
+  viewerRoleLabel: string;
   leagueFormat: LeagueFormat;
   currentUserId: string;
   leagueResultsMode: SessionInputMode;
@@ -143,6 +152,10 @@ export type LeaguePageTabsProps = {
 export function LeaguePageTabs(props: LeaguePageTabsProps) {
   const {
     leagueId,
+    leagueName,
+    leagueFormatLabel,
+    memberCount,
+    viewerRoleLabel,
     leagueFormat,
     currentUserId,
     leagueResultsMode,
@@ -263,6 +276,41 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
   const currentUserPlayerId =
     memberRows.find((m) => m.user_id === currentUserId)?.player_id ?? null;
 
+  const leagueInviteShare = useMemo(() => {
+    const rosterLines = rosterDisplay.map((r) => {
+      const skill = r.isGuest ? null : rosterSkillByPlayerId[r.id];
+      const levelLabel =
+        skill != null && Number.isFinite(skill) ? formatDisplayLevel(skill) : null;
+      let display: string;
+      if (r.isGuest) {
+        display = (r.name || "").trim() || "Guest player";
+      } else {
+        const base = (r.name || "").trim() || "Player";
+        display = r.username ? `${base} (@${r.username})` : base;
+      }
+      return { display, levelLabel };
+    });
+    return {
+      shareTitle: shareTitleForLeagueInvite(leagueName),
+      shareText: buildLeagueInviteShareBody({
+        leagueName,
+        formatLabel: leagueFormatLabel,
+        refCode,
+        roleLabel: viewerRoleLabel,
+        memberCount,
+        rosterLines,
+      }),
+    };
+  }, [
+    leagueName,
+    leagueFormatLabel,
+    refCode,
+    viewerRoleLabel,
+    memberCount,
+    rosterDisplay,
+    rosterSkillByPlayerId,
+  ]);
+
   const openPlayerProfile = useCallback((playerId: string, isGuest?: boolean) => {
     if (isGuest) {
       toast.message("Guest players don’t have a profile to view.");
@@ -345,6 +393,40 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
             Standings include in-progress live sessions. Skill preview updates as results are entered;
             official ratings apply when a session is completed.
           </p>
+        ) : null}
+        {inviteUrl ? (
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader>
+              <CardTitle>Invite link</CardTitle>
+              <CardDescription>
+                Share this URL so people can open the join page with your reference code. New players request to
+                join;{" "}
+                {canAdmin ? (
+                  <>you approve or decline in the Manage tab.</>
+                ) : (
+                  <>an organiser approves join requests.</>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <code className="min-w-0 flex-1 break-all rounded-lg border border-border/80 bg-muted/30 px-3 py-2.5 text-sm leading-relaxed">
+                  {inviteUrl}
+                </code>
+                <div className="flex flex-shrink-0 flex-wrap gap-2 sm:pt-0.5">
+                  <InviteLinkShareButton
+                    url={inviteUrl}
+                    shareTitle={leagueInviteShare.shareTitle}
+                    shareText={leagueInviteShare.shareText}
+                    label="Share invite"
+                    size="sm"
+                    variant="default"
+                  />
+                  <CopyTextButton text={inviteUrl} label="Copy link" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         ) : null}
         <LeagueOverviewNextSession
           leagueId={leagueId}
@@ -838,7 +920,17 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   <code className="min-w-0 flex-1 break-all rounded-lg border border-border/80 bg-muted/30 px-3 py-2.5 text-sm leading-relaxed">
                     {inviteUrl}
                   </code>
-                  <CopyTextButton text={inviteUrl} label="Copy link" />
+                  <div className="flex flex-shrink-0 flex-wrap gap-2 sm:pt-0.5">
+                    <InviteLinkShareButton
+                      url={inviteUrl}
+                      shareTitle={leagueInviteShare.shareTitle}
+                      shareText={leagueInviteShare.shareText}
+                      label="Share invite"
+                      size="sm"
+                      variant="default"
+                    />
+                    <CopyTextButton text={inviteUrl} label="Copy link" />
+                  </div>
                 </div>
                 {isOwner ? (
                   <UpdateLeagueCodeForm leagueId={leagueId} currentCode={refCode} />

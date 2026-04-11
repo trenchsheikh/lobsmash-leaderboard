@@ -23,6 +23,8 @@ export const metadata: Metadata = {
   title: "LobSmash",
   description: "League sessions, games, and leaderboards",
   icons: {
+    icon: [{ url: "/lobsmash-logo.svg", type: "image/svg+xml" }],
+    shortcut: "/lobsmash-logo.svg",
     apple: "/lobsmash-logo.png",
   },
   openGraph: {

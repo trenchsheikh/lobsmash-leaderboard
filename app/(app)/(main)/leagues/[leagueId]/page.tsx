@@ -74,6 +74,13 @@ export default async function LeaguePage({ params }: PageProps) {
   const myMembership = memberRows.find((m) => m.user_id === user.id);
   if (!myMembership) notFound();
 
+  const viewerRoleLabel =
+    myMembership.role === "owner"
+      ? "Owner"
+      : myMembership.role === "admin"
+        ? "Admin"
+        : "Member";
+
   const canAdmin = myMembership.role === "owner" || myMembership.role === "admin";
   const isOwner = myMembership.role === "owner";
 
@@ -472,6 +479,10 @@ export default async function LeaguePage({ params }: PageProps) {
 
       <LeaguePageTabs
         leagueId={leagueId}
+        leagueName={String(league.name)}
+        leagueFormatLabel={formatDisplayName(String(league.format))}
+        memberCount={memberRows.length}
+        viewerRoleLabel={viewerRoleLabel}
         leagueFormat={leagueFormat}
         currentUserId={user.id}
         leagueResultsMode={leagueResultsMode}

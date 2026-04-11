@@ -38,7 +38,9 @@ export async function shareOrCopyInviteUrl(input: {
   }
 
   try {
-    await navigator.clipboard.writeText(input.url);
+    const body = (input.text ?? DEFAULT_TEXT).trim();
+    const clip = input.url.trim() ? `${body}\n\n${input.url.trim()}` : body;
+    await navigator.clipboard.writeText(clip);
     return "copied";
   } catch {
     return "failed";

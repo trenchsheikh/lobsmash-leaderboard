@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { swapFriendlyRosterSlots } from "@/app/actions/friendly-sessions";
@@ -9,6 +9,11 @@ import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { InviteLinkShareButton } from "@/components/invite-link-share-button";
+import {
+  buildOpenMatchShareBody,
+  orderedSlotsFromFriendlyTeams,
+  shareTitleForOpenMatch,
+} from "@/lib/open-match-share-text";
 import {
   FriendlySessionCard,
   type FriendlySlotDisplay,
@@ -77,6 +82,22 @@ export function FriendlySessionLobbyPanel({
   );
   const canSwap = filledSlotUserIds.has(currentUserId) && status === "open";
 
+  const { shareTitle, shareText } = useMemo(() => {
+    const slots = orderedSlotsFromFriendlyTeams(teamA, teamB);
+    const mk = matchKind === "competitive" ? "competitive" : "friendly";
+    return {
+      shareTitle: shareTitleForOpenMatch(title, mk),
+      shareText: buildOpenMatchShareBody({
+        title,
+        matchKind: mk,
+        startsAt,
+        ratingBandLabel,
+        capacity,
+        slots,
+      }),
+    };
+  }, [title, matchKind, startsAt, ratingBandLabel, capacity, teamA, teamB]);
+
   function onSlotClick(slotIndex: number) {
     if (!swapMode) return;
     const slot = [...teamA, ...teamB].find((s) => s.slotIndex === slotIndex);
@@ -119,7 +140,12 @@ export function FriendlySessionLobbyPanel({
             <code className="min-w-0 flex-1 break-all rounded-lg border border-border/80 bg-background px-2 py-1.5 text-xs">
               {inviteUrl}
             </code>
-            <InviteLinkShareButton url={inviteUrl} label="Share" />
+            <InviteLinkShareButton
+              url={inviteUrl}
+              shareTitle={shareTitle}
+              shareText={shareText}
+              label="Share"
+            />
           </div>
         </div>
       ) : null}

@@ -24,7 +24,7 @@ const remotePatterns =
 
 const nextConfig: NextConfig = {
   async rewrites() {
-    return [{ source: "/favicon.ico", destination: "/lobsmash-logo.png" }];
+    return [{ source: "/favicon.ico", destination: "/lobsmash-logo.svg" }];
   },
   reactCompiler: true,
   ...(remotePatterns.length > 0 ? { images: { remotePatterns } } : {}),

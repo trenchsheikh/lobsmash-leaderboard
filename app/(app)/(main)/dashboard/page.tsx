@@ -31,6 +31,11 @@ import { JoinLeagueForm } from "@/components/join-league-form";
 import { PasteInviteLinkForm } from "@/components/paste-invite-link-form";
 import { CancelOpenSessionButton } from "@/components/cancel-open-session-button";
 import { InviteLinkShareButton } from "@/components/invite-link-share-button";
+import { getFriendlySessionSharePayloads } from "@/lib/friendly-session-share-payload";
+import {
+  buildLeagueInviteShareBody,
+  shareTitleForLeagueInvite,
+} from "@/lib/league-invite-share-text";
 import { formatDisplayName } from "@/lib/league-format";
 
 const glassCard =
@@ -49,6 +54,8 @@ type MemberRow = {
   format: string;
   code: string;
   role: string;
+  shareTitle: string;
+  shareText: string;
 };
 
 type PendingRow = {
@@ -58,6 +65,8 @@ type PendingRow = {
   name: string;
   format: string;
   code: string;
+  shareTitle: string;
+  shareText: string;
 };
 
 type OpenSessionRole = "host" | "participant" | "pending_join";
@@ -73,6 +82,9 @@ type OpenSessionRow = {
   matchKind: string;
   createdAt: string;
   openRole: OpenSessionRole;
+  /** Rich Web Share copy (hosts only). */
+  shareTitle?: string;
+  shareText?: string;
 };
 
 type UnifiedRow = MemberRow | PendingRow | OpenSessionRow;
@@ -161,6 +173,54 @@ export default async function DashboardPage() {
       })
       .filter((r): r is PendingRow => r != null) ?? [];
 
+  const leagueIdsForShare = [
+    ...new Set([...memberRows.map((m) => m.leagueId), ...pendingRows.map((p) => p.leagueId)]),
+  ];
+  const memberCountByLeague = new Map<string, number>();
+  if (leagueIdsForShare.length > 0) {
+    const { data: lmShareRows } = await supabase
+      .from("league_members")
+      .select("league_id")
+      .in("league_id", leagueIdsForShare);
+    for (const r of lmShareRows ?? []) {
+      const lid = String(r.league_id).toLowerCase();
+      memberCountByLeague.set(lid, (memberCountByLeague.get(lid) ?? 0) + 1);
+    }
+  }
+
+  function leagueInvitePayload(
+    leagueId: string,
+    leagueName: string,
+    format: string,
+    code: string,
+    roleLabel: string | undefined,
+    context: "member_share" | "pending_share",
+  ) {
+    const lid = leagueId.toLowerCase();
+    const n = memberCountByLeague.get(lid) ?? 0;
+    return {
+      shareTitle: shareTitleForLeagueInvite(leagueName),
+      shareText: buildLeagueInviteShareBody({
+        leagueName,
+        formatLabel: formatDisplayName(format),
+        refCode: code,
+        roleLabel,
+        memberCount: n,
+        context,
+      }),
+    };
+  }
+
+  const memberRowsWithShare: MemberRow[] = memberRows.map((m) => ({
+    ...m,
+    ...leagueInvitePayload(m.leagueId, m.name, m.format, m.code, m.role, "member_share"),
+  }));
+
+  const pendingRowsWithShare: PendingRow[] = pendingRows.map((p) => ({
+    ...p,
+    ...leagueInvitePayload(p.leagueId, p.name, p.format, p.code, undefined, "pending_share"),
+  }));
+
   // RLS returns sessions you can see (creator, roster, or join request). Classify host vs participant vs pending join.
   const { data: visibleOpenSessions, error: friendlySessionsErr } = await supabase
     .from("friendly_sessions")
@@ -213,10 +273,21 @@ export default async function DashboardPage() {
     return null;
   }
 
+  const hostedForShare = visible.filter((s) => (s.creator_user_id as string) === user.id);
+  const shareMeta = hostedForShare.map((s) => ({
+    id: s.id as string,
+    title: s.title as string | null,
+    starts_at: s.starts_at as string | null,
+    match_kind: (s.match_kind as string) ?? "friendly",
+    capacity: s.capacity as number,
+  }));
+  const shareBySessionId = await getFriendlySessionSharePayloads(supabase, shareMeta);
+
   const openSessionRows: OpenSessionRow[] = visible.flatMap((s) => {
     const openRole = openRoleForSession(s);
     if (!openRole) return [];
     const display = s.title?.trim() || OPEN_MATCH_LABEL;
+    const payload = openRole === "host" ? shareBySessionId.get(s.id as string) : undefined;
     return [
       {
         kind: "open_session" as const,
@@ -229,11 +300,13 @@ export default async function DashboardPage() {
         matchKind: (s.match_kind as string) ?? "friendly",
         createdAt: (s.created_at as string) ?? "",
         openRole,
+        shareTitle: payload?.shareTitle,
+        shareText: payload?.shareText,
       },
     ];
   });
 
-  const leagueRowsSorted = [...memberRows, ...pendingRows].sort((a, b) =>
+  const leagueRowsSorted = [...memberRowsWithShare, ...pendingRowsWithShare].sort((a, b) =>
     unifiedSortKey(a).localeCompare(unifiedSortKey(b)),
   );
   const openSessionsSorted = [...openSessionRows].sort(
@@ -242,9 +315,7 @@ export default async function DashboardPage() {
   /** Hosted open matches first (newest first), then leagues A–Z */
   const unifiedRows: UnifiedRow[] = [...openSessionsSorted, ...leagueRowsSorted];
 
-  const hostedSessionIds = visible
-    .filter((s) => (s.creator_user_id as string) === user.id)
-    .map((s) => s.id as string);
+  const hostedSessionIds = hostedForShare.map((s) => s.id as string);
 
   let friendlyPendingRows: PendingFriendlyRequestRow[] = [];
   if (hostedSessionIds.length > 0) {
@@ -375,12 +446,22 @@ export default async function DashboardPage() {
                         </div>
                         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
                           <span className="text-sm capitalize text-muted-foreground">{row.role}</span>
-                          <Link
-                            href={`/leagues/${row.leagueId}`}
-                            className={buttonVariants({ size: "sm", variant: "outline" })}
-                          >
-                            View league
-                          </Link>
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <InviteLinkShareButton
+                              url={origin ? `${origin}/join/${row.code}` : `/join/${row.code}`}
+                              shareTitle={row.shareTitle}
+                              shareText={row.shareText}
+                              label="Share invite"
+                              size="sm"
+                              variant="outline"
+                            />
+                            <Link
+                              href={`/leagues/${row.leagueId}`}
+                              className={buttonVariants({ size: "sm", variant: "outline" })}
+                            >
+                              View league
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     </li>
@@ -406,12 +487,22 @@ export default async function DashboardPage() {
                           <Badge variant="outline" className="font-normal">
                             Join requested
                           </Badge>
-                          <Link
-                            href={`/join/${row.code}`}
-                            className={buttonVariants({ size: "sm", variant: "outline" })}
-                          >
-                            Invite page
-                          </Link>
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <InviteLinkShareButton
+                              url={origin ? `${origin}/join/${row.code}` : `/join/${row.code}`}
+                              shareTitle={row.shareTitle}
+                              shareText={row.shareText}
+                              label="Share invite"
+                              size="sm"
+                              variant="outline"
+                            />
+                            <Link
+                              href={`/join/${row.code}`}
+                              className={buttonVariants({ size: "sm", variant: "outline" })}
+                            >
+                              Invite page
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     </li>
@@ -476,6 +567,8 @@ export default async function DashboardPage() {
                             {row.openRole === "host" ? (
                               <InviteLinkShareButton
                                 url={`${origin}/friendly/invite/${row.inviteToken}`}
+                                shareTitle={row.shareTitle}
+                                shareText={row.shareText}
                                 label="Share invite"
                                 size="sm"
                                 variant="outline"
@@ -532,12 +625,22 @@ export default async function DashboardPage() {
                           <TableCell className="font-mono text-sm">{row.code}</TableCell>
                           <TableCell className="capitalize">{row.role}</TableCell>
                           <TableCell className="text-right">
-                            <Link
-                              href={`/leagues/${row.leagueId}`}
-                              className={buttonVariants({ size: "sm", variant: "outline" })}
-                            >
-                              View
-                            </Link>
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <InviteLinkShareButton
+                                url={origin ? `${origin}/join/${row.code}` : `/join/${row.code}`}
+                                shareTitle={row.shareTitle}
+                                shareText={row.shareText}
+                                label="Share invite"
+                                size="sm"
+                                variant="outline"
+                              />
+                              <Link
+                                href={`/leagues/${row.leagueId}`}
+                                className={buttonVariants({ size: "sm", variant: "outline" })}
+                              >
+                                View
+                              </Link>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ) : row.kind === "pending" ? (
@@ -565,12 +668,22 @@ export default async function DashboardPage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Link
-                              href={`/join/${row.code}`}
-                              className={buttonVariants({ size: "sm", variant: "outline" })}
-                            >
-                              Invite page
-                            </Link>
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <InviteLinkShareButton
+                                url={origin ? `${origin}/join/${row.code}` : `/join/${row.code}`}
+                                shareTitle={row.shareTitle}
+                                shareText={row.shareText}
+                                label="Share invite"
+                                size="sm"
+                                variant="outline"
+                              />
+                              <Link
+                                href={`/join/${row.code}`}
+                                className={buttonVariants({ size: "sm", variant: "outline" })}
+                              >
+                                Invite page
+                              </Link>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -635,6 +748,8 @@ export default async function DashboardPage() {
                               {row.openRole === "host" ? (
                                 <InviteLinkShareButton
                                   url={`${origin}/friendly/invite/${row.inviteToken}`}
+                                  shareTitle={row.shareTitle}
+                                  shareText={row.shareText}
                                   label="Share invite"
                                   size="sm"
                                   variant="outline"
