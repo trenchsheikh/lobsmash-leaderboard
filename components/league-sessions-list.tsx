@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { LeagueDraftSessionDeleteButton } from "@/components/league-draft-session-delete-button";
 import { Badge } from "@/components/ui/badge";
 import { teamsCoverCourts } from "@/lib/session-readiness";
 import { sessionStatusDisplayLabel } from "@/lib/session-status-label";
@@ -60,6 +61,7 @@ export function LeagueSessionsList({
   sessions,
   sectionLabel = "Recent sessions",
   showDraftSetupHints = false,
+  canDeleteDrafts = false,
 }: {
   leagueId: string;
   sessions: LeagueSessionRow[];
@@ -67,6 +69,8 @@ export function LeagueSessionsList({
   sectionLabel?: string;
   /** In-progress session setup hints (e.g. add scores); only for admins who can edit. */
   showDraftSetupHints?: boolean;
+  /** When true, draft sessions show a delete control (league admins). */
+  canDeleteDrafts?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -101,12 +105,14 @@ export function LeagueSessionsList({
             const dateLabel = formatSessionDate(s.date);
             const draftHint = showDraftSetupHints ? draftSetupHint(s) : null;
 
+            const showDelete = canDeleteDrafts && s.status === "draft";
+
             return (
-              <li key={s.id}>
+              <li key={s.id} className="flex items-stretch">
                 <Link
                   href={`/leagues/${leagueId}/sessions/${s.id}`}
                   className={cn(
-                    "group flex w-full min-h-[4.25rem] items-start justify-between gap-3 px-4 py-3.5 text-left transition-colors",
+                    "group flex min-h-[4.25rem] min-w-0 flex-1 items-start justify-between gap-3 px-4 py-3.5 text-left transition-colors",
                     "hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   )}
                   aria-label={`${sessionLabel}, ${dateLabel}, ${sessionStatusDisplayLabel(s.status)}. View session details.`}
@@ -137,6 +143,11 @@ export function LeagueSessionsList({
                     />
                   </div>
                 </Link>
+                {showDelete ? (
+                  <div className="flex shrink-0 items-center border-l border-border/40 bg-muted/10 px-1">
+                    <LeagueDraftSessionDeleteButton leagueId={leagueId} sessionId={s.id} />
+                  </div>
+                ) : null}
               </li>
             );
           })}

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { Clock, Inbox, Link2, Sparkles, Trophy, UsersRound } from "lucide-react";
-import { requireOnboarded } from "@/lib/auth/profile";
+import { isSupabaseJwtExpired, requireOnboarded } from "@/lib/auth/profile";
 import { buttonVariants } from "@/lib/button-variants";
 import { PageHeader } from "@/components/page-header";
 import { DashboardCreateLeagueSection } from "@/components/dashboard-create-league-section";
@@ -28,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { JoinLeagueForm } from "@/components/join-league-form";
 import { PasteInviteLinkForm } from "@/components/paste-invite-link-form";
+import { CancelOpenSessionButton } from "@/components/cancel-open-session-button";
 import { CopyTextButton } from "@/components/copy-text-button";
 import { formatDisplayName } from "@/lib/league-format";
 
@@ -169,6 +171,9 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false });
 
   if (friendlySessionsErr) {
+    if (isSupabaseJwtExpired(friendlySessionsErr)) {
+      redirect("/login");
+    }
     console.error("[dashboard] friendly_sessions:", friendlySessionsErr.message);
   }
 
@@ -482,6 +487,9 @@ export default async function DashboardPage() {
                             >
                               View lobby
                             </Link>
+                            {row.openRole === "host" ? (
+                              <CancelOpenSessionButton sessionId={row.sessionId} />
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -638,6 +646,9 @@ export default async function DashboardPage() {
                               >
                                 View lobby
                               </Link>
+                              {row.openRole === "host" ? (
+                                <CancelOpenSessionButton sessionId={row.sessionId} />
+                              ) : null}
                             </div>
                           </TableCell>
                         </TableRow>

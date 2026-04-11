@@ -812,6 +812,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   sessions={sessions}
                   sectionLabel={canAdmin ? "Past sessions" : "Recent sessions"}
                   showDraftSetupHints={canAdmin}
+                  canDeleteDrafts={canAdmin}
                 />
               </div>
             ) : (

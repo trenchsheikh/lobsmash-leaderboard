@@ -10,7 +10,7 @@ type PgError = {
   hint?: string | null;
 };
 
-function isSupabaseJwtExpired(error: PgError | null): boolean {
+export function isSupabaseJwtExpired(error: PgError | null): boolean {
   if (!error) return false;
   const code = String(error.code ?? "");
   const msg = String(error.message ?? "").toLowerCase();

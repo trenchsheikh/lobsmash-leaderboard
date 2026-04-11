@@ -21,8 +21,18 @@ export function createClientWithToken(accessTokenValue: string | null): Supabase
  * Uses @supabase/supabase-js with `accessToken` only — not @supabase/ssr's
  * createServerClient, which registers `onAuthStateChange` and is incompatible
  * with the accessToken option.
+ *
+ * The token resolver runs on **each** PostgREST request (not once at client
+ * creation) so `getToken({ skipCache: true })` can return a fresh JWT after
+ * refresh and long requests do not stick with an expired snapshot.
  */
 export async function createClient() {
   const { getToken } = await auth();
-  return createClientWithToken(await getClerkTokenForSupabase(getToken));
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      accessToken: async () => getClerkTokenForSupabase(getToken),
+    },
+  );
 }
