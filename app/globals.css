@@ -166,14 +166,13 @@
     @apply border-border outline-ring/50;
   }
   /**
-   * Document shell: same canvas on html, body, and .app-root so no intermediate layer
-   * stays short or shows the UA default (Safari toolbars / safe areas). Tokens live on
-   * :root; paint is repeated at each level for a continuous fill. Dynamic viewport (dvh)
-   * + safe-area padding on body only.
+   * Document shell: same canvas on html, body, and .app-root. Do not set height: 100% on
+   * html/body — that caps the root to the viewport on iOS/Safari so the gradient only
+   * paints one screen; min-height + auto height lets the document grow with scroll content.
+   * Dynamic viewport (dvh) + safe-area padding on body only.
    */
   html {
     @apply font-sans;
-    height: 100%;
     min-height: 100vh;
     min-height: 100dvh;
     min-height: -webkit-fill-available;
@@ -193,7 +192,6 @@
     @apply text-foreground;
     display: flex;
     flex-direction: column;
-    height: 100%;
     min-height: 100vh;
     min-height: 100dvh;
     min-height: -webkit-fill-available;

@@ -62,7 +62,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${fontSans.variable} ${fontHeading.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${fontSans.variable} ${fontHeading.variable} ${geistMono.variable} min-h-[100dvh] antialiased`}
     >
       <body className="app-body">
         <div className="app-root">
