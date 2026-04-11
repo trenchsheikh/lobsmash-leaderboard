@@ -6,6 +6,8 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/join(.*)",
+  "/friendly/invite(.*)",
+  "/game(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
@@ -23,10 +25,10 @@ export default clerkMiddleware(async (auth, request) => {
       request.nextUrl.pathname.startsWith("/sign-up"))
   ) {
     const redirectUrl = request.nextUrl.searchParams.get("redirect_url");
-    if (redirectUrl?.startsWith("/join/")) {
+    if (redirectUrl?.startsWith("/join/") || redirectUrl?.startsWith("/friendly/invite/")) {
       try {
         const u = new URL(redirectUrl, request.url);
-        if (u.pathname.startsWith("/join/")) {
+        if (u.pathname.startsWith("/join/") || u.pathname.startsWith("/friendly/invite/")) {
           return NextResponse.redirect(u);
         }
       } catch {

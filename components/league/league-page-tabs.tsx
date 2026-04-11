@@ -71,6 +71,7 @@ import {
   SessionCreateWizard,
   type RosterPlayer,
 } from "@/components/session-create-wizard";
+import { LeagueSessionShareButton } from "@/components/league-session-share-button";
 import { ListPagination } from "@/components/list-pagination";
 import { PAGE_SIZE, slicePage } from "@/lib/paginate";
 
@@ -709,13 +710,13 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                   <SheetContent
                     side="right"
                     showCloseButton
-                    className="flex h-full max-h-[100dvh] w-full flex-col gap-0 border-l p-0 sm:max-w-3xl"
+                    className="flex h-full max-h-[100dvh] w-full flex-col gap-0 border-l border-border/80 bg-background p-0 shadow-xl sm:max-w-3xl"
                   >
                     <SheetHeader className="shrink-0 border-b border-border/80 px-4 py-4 sm:px-6">
                       <SheetTitle className="font-heading text-lg">
                         {createFlowPhase === "saved" ? "Session saved" : "New session"}
                       </SheetTitle>
-                      <SheetDescription>
+                      <SheetDescription className="text-pretty text-foreground/85">
                         {createFlowPhase === "saved" ? (
                           <>
                             Your session is live on this league. Open the editor anytime to finish teams,
@@ -729,7 +730,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                         )}
                       </SheetDescription>
                     </SheetHeader>
-                    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:pb-6">
                       {createFlowPhase === "wizard" ? (
                         <SessionCreateWizard
                           key={wizardMountKey}
@@ -755,13 +756,17 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                             Session date:{" "}
                             <span className="font-medium text-foreground">{lastCreatedSession.date}</span>
                           </p>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                             <Link
                               href={`/leagues/${leagueId}/sessions/${lastCreatedSession.id}/edit`}
                               className={buttonVariants({ className: "w-fit" })}
                             >
                               Open session editor
                             </Link>
+                            <LeagueSessionShareButton
+                              leagueId={leagueId}
+                              sessionId={lastCreatedSession.id}
+                            />
                           </div>
                         </div>
                       ) : null}

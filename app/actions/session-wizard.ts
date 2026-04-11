@@ -8,6 +8,7 @@ import {
   reverseSkillRatingIfCompleted,
 } from "@/lib/session-skill-rating";
 import { MAX_SESSION_COURTS, MIN_SESSION_COURTS } from "@/lib/session-courts";
+import type { MatchKind } from "@/lib/league-session-share-text";
 
 export type InputMode = "full" | "champ_court_only";
 
@@ -31,6 +32,10 @@ export async function createSessionDraft(
   input: {
     date: string;
     numCourts: number;
+    shareLocation?: string | null;
+    shareDurationMinutes?: number | null;
+    shareRestriction?: string | null;
+    scheduledAt?: string | null;
   },
   options?: { revalidate?: boolean },
 ) {
@@ -61,6 +66,18 @@ export async function createSessionDraft(
   }
   const inputMode = sessionInputModeForFormat(formatRaw);
 
+  const dur =
+    input.shareDurationMinutes != null &&
+    Number.isFinite(input.shareDurationMinutes) &&
+    input.shareDurationMinutes > 0
+      ? Math.floor(input.shareDurationMinutes)
+      : null;
+  let scheduledAt: string | null = null;
+  if (input.scheduledAt && String(input.scheduledAt).trim() !== "") {
+    const t = new Date(input.scheduledAt);
+    if (!Number.isNaN(t.getTime())) scheduledAt = t.toISOString();
+  }
+
   const { data, error } = await supabase
     .from("sessions")
     .insert({
@@ -70,6 +87,11 @@ export async function createSessionDraft(
       status: "draft",
       num_courts: n,
       input_mode: inputMode as InputMode,
+      match_kind: "competitive" as const,
+      share_location: input.shareLocation?.trim() || null,
+      share_duration_minutes: dur,
+      share_restriction: input.shareRestriction?.trim() || null,
+      scheduled_at: scheduledAt,
     })
     .select("id")
     .single();
@@ -88,6 +110,10 @@ export async function createSessionDraft(
 export type SaveNewSessionDraftPayload = {
   date: string;
   numCourts: number;
+  shareLocation?: string;
+  shareDurationMinutes?: number | null;
+  shareRestriction?: string;
+  scheduledAt?: string | null;
   teams: { playerA: string; playerB: string }[];
   /** Full-session mode: game rows; skipped if validation fails (session + teams still saved). */
   games: GameRowInput[] | null;
@@ -110,6 +136,10 @@ export async function saveNewSessionDraft(
     {
       date: payload.date.trim(),
       numCourts: payload.numCourts,
+      shareLocation: payload.shareLocation?.trim() || null,
+      shareDurationMinutes: payload.shareDurationMinutes ?? null,
+      shareRestriction: payload.shareRestriction?.trim() || null,
+      scheduledAt: payload.scheduledAt ?? null,
     },
     { revalidate: false },
   );
@@ -169,6 +199,10 @@ export async function updateSessionDraftMeta(
   input: {
     date: string;
     numCourts: number;
+    shareLocation?: string | null;
+    shareDurationMinutes?: number | null;
+    shareRestriction?: string | null;
+    scheduledAt?: string | null;
   },
 ) {
   const { supabase, user } = await requireOnboarded();
@@ -213,15 +247,40 @@ export async function updateSessionDraftMeta(
   }
   const inputMode = sessionInputModeForFormat(formatRaw);
 
-  const { error: uErr } = await supabase
-    .from("sessions")
-    .update({
-      date: dateRaw,
-      num_courts: n,
-      input_mode: inputMode as InputMode,
-    })
-    .eq("id", sid)
-    .eq("league_id", lid);
+  const dur =
+    input.shareDurationMinutes !== undefined
+      ? input.shareDurationMinutes != null &&
+        Number.isFinite(input.shareDurationMinutes) &&
+        input.shareDurationMinutes > 0
+        ? Math.floor(input.shareDurationMinutes)
+        : null
+      : undefined;
+
+  let scheduledAt: string | null | undefined = undefined;
+  if (input.scheduledAt !== undefined) {
+    if (input.scheduledAt && String(input.scheduledAt).trim() !== "") {
+      const t = new Date(input.scheduledAt);
+      scheduledAt = Number.isNaN(t.getTime()) ? null : t.toISOString();
+    } else {
+      scheduledAt = null;
+    }
+  }
+
+  const patch: Record<string, unknown> = {
+    date: dateRaw,
+    num_courts: n,
+    input_mode: inputMode as InputMode,
+  };
+  if (input.shareLocation !== undefined) {
+    patch.share_location = input.shareLocation?.trim() || null;
+  }
+  if (dur !== undefined) patch.share_duration_minutes = dur;
+  if (input.shareRestriction !== undefined) {
+    patch.share_restriction = input.shareRestriction?.trim() || null;
+  }
+  if (scheduledAt !== undefined) patch.scheduled_at = scheduledAt;
+
+  const { error: uErr } = await supabase.from("sessions").update(patch).eq("id", sid).eq("league_id", lid);
 
   if (uErr) return { error: uErr.message };
 
@@ -651,4 +710,94 @@ export async function completeSession(
   revalidatePath(`/leagues/${lid}/sessions/${sid}`);
   revalidatePath(`/leagues/${lid}`);
   return { ok: true as const };
+}
+
+export type LeagueSessionSharePayload = {
+  matchKind: MatchKind;
+  sessionDate: string;
+  scheduledAt: string | null;
+  durationMinutes: number | null;
+  location: string | null;
+  restrictionNote: string | null;
+  numCourts: number;
+  skillsByPlayerId: Record<string, number>;
+  playerIdsInOrder: string[];
+  playerDisplayNameById: Record<string, string>;
+};
+
+/** For admins: load session + teams to build a Playtomic-style share message. */
+export async function getLeagueSessionSharePayload(
+  leagueId: string,
+  sessionId: string,
+): Promise<{ ok: true; data: LeagueSessionSharePayload } | { error: string }> {
+  const { supabase, user } = await requireOnboarded();
+  const lid = leagueId.trim().toLowerCase();
+  const sid = sessionId.trim().toLowerCase();
+  if (!(await requireLeagueAdmin(supabase, lid, user.id))) {
+    return { error: "Not allowed." };
+  }
+
+  const { data: session, error: sErr } = await supabase
+    .from("sessions")
+    .select(
+      "id, date, match_kind, share_location, share_duration_minutes, share_restriction, scheduled_at, num_courts",
+    )
+    .eq("id", sid)
+    .eq("league_id", lid)
+    .maybeSingle();
+
+  if (sErr || !session) return { error: "Session not found." };
+
+  const { data: teamRows } = await supabase
+    .from("session_teams")
+    .select("player_a, player_b, sort_order")
+    .eq("session_id", sid)
+    .order("sort_order", { ascending: true });
+
+  const playerIdsInOrder: string[] = [];
+  for (const row of teamRows ?? []) {
+    playerIdsInOrder.push(row.player_a as string, row.player_b as string);
+  }
+
+  const maxSlots = Math.max(0, (session.num_courts as number) * 4);
+  const trimmed = playerIdsInOrder.slice(0, maxSlots);
+
+  const uniqueIds = [...new Set(trimmed)];
+  const { data: players } =
+    uniqueIds.length > 0
+      ? await supabase.from("players").select("id, name").in("id", uniqueIds)
+      : { data: [] as { id: string; name: string }[] };
+
+  const { data: ratings } =
+    uniqueIds.length > 0
+      ? await supabase.from("player_ratings").select("player_id, skill").in("player_id", uniqueIds)
+      : { data: [] as { player_id: string; skill: number }[] };
+
+  const skillsByPlayerId: Record<string, number> = {};
+  for (const r of ratings ?? []) {
+    skillsByPlayerId[r.player_id as string] = r.skill as number;
+  }
+  const playerDisplayNameById: Record<string, string> = {};
+  for (const p of players ?? []) {
+    playerDisplayNameById[p.id as string] = (p.name as string)?.trim() || "Player";
+  }
+
+  const mk = session.match_kind as string | null;
+  const matchKind: MatchKind = mk === "friendly" ? "friendly" : "competitive";
+
+  return {
+    ok: true,
+    data: {
+      matchKind,
+      sessionDate: String(session.date),
+      scheduledAt: (session.scheduled_at as string | null) ?? null,
+      durationMinutes: (session.share_duration_minutes as number | null) ?? null,
+      location: (session.share_location as string | null) ?? null,
+      restrictionNote: (session.share_restriction as string | null) ?? null,
+      numCourts: session.num_courts as number,
+      skillsByPlayerId,
+      playerIdsInOrder: trimmed,
+      playerDisplayNameById,
+    },
+  };
 }

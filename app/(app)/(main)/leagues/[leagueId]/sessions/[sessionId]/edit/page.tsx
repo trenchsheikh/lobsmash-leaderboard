@@ -248,6 +248,19 @@ export default async function EditSessionPage({ params }: PageProps) {
         initialDate={String(session.date)}
         initialTeams={initialTeams}
         initialGameRows={initialGameRows}
+        legacyMatchKind={
+          (session as { match_kind?: string | null }).match_kind === "friendly"
+            ? "friendly"
+            : "competitive"
+        }
+        initialShareLocation={(session as { share_location?: string | null }).share_location ?? null}
+        initialShareDurationMinutes={
+          (session as { share_duration_minutes?: number | null }).share_duration_minutes ?? null
+        }
+        initialShareRestriction={
+          (session as { share_restriction?: string | null }).share_restriction ?? null
+        }
+        initialScheduledAt={(session as { scheduled_at?: string | null }).scheduled_at ?? null}
         sessionCompletionStatus={session.status === "completed" ? "completed" : "draft"}
       />
 

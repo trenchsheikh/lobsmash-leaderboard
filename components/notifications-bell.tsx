@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Check, ExternalLink, X } from "lucide-react";
 import { toast } from "sonner";
@@ -60,12 +60,47 @@ function payloadStr(v: unknown): string | undefined {
   return typeof v === "string" && v.length > 0 ? v : undefined;
 }
 
+const DISMISSED_REMINDER_KEYS_LS = "lobsmah-dismissed-session-reminders";
+
+function loadDismissedReminderKeys(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(DISMISSED_REMINDER_KEYS_LS);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((x): x is string => typeof x === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
 export function NotificationsBell() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<NotificationsResponse | null>(null);
   const [pendingFriend, startFriend] = useTransition();
+  const [dismissedReminderKeys, setDismissedReminderKeys] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    setDismissedReminderKeys(loadDismissedReminderKeys());
+  }, []);
+
+  useEffect(() => {
+    if (!data) return;
+    const valid = new Set(data.reminders.map((r) => r.key));
+    setDismissedReminderKeys((prev) => {
+      const next = new Set([...prev].filter((k) => valid.has(k)));
+      if (next.size === prev.size) return prev;
+      try {
+        localStorage.setItem(DISMISSED_REMINDER_KEYS_LS, JSON.stringify([...next]));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, [data]);
 
   const loadFeed = useCallback(async () => {
     setLoading(true);
@@ -93,8 +128,6 @@ export function NotificationsBell() {
     void loadFeed();
   }, [open, loadFeed]);
 
-  const badgeCount = data?.badgeCount ?? 0;
-
   async function markRead(ids: string[]) {
     if (ids.length === 0) return;
     try {
@@ -116,10 +149,38 @@ export function NotificationsBell() {
     void loadFeed();
   }
 
+  function dismissReminder(key: string) {
+    setDismissedReminderKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      try {
+        localStorage.setItem(DISMISSED_REMINDER_KEYS_LS, JSON.stringify([...next]));
+      } catch {
+        /* ignore quota */
+      }
+      return next;
+    });
+  }
+
+  async function dismissSessionPartnerNotification(id: string) {
+    await markRead([id]);
+    void loadFeed();
+  }
+
   const friends = data?.friends ?? [];
-  const sessionPartner = data?.sessionPartner ?? [];
-  const reminders = data?.reminders ?? [];
-  const hasAny = friends.length > 0 || sessionPartner.length > 0 || reminders.length > 0;
+  const sessionPartnerUnread = useMemo(
+    () => (data?.sessionPartner ?? []).filter((n) => n.readAt == null),
+    [data?.sessionPartner],
+  );
+  const remindersAll = data?.reminders ?? [];
+  const visibleReminders = useMemo(
+    () => remindersAll.filter((r) => !dismissedReminderKeys.has(r.key)),
+    [remindersAll, dismissedReminderKeys],
+  );
+  const hasAny =
+    friends.length > 0 || sessionPartnerUnread.length > 0 || visibleReminders.length > 0;
+  const displayBadgeCount =
+    friends.length + sessionPartnerUnread.length + visibleReminders.length;
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
@@ -132,9 +193,9 @@ export function NotificationsBell() {
         aria-label="Notifications"
       >
         <Bell className="size-5" aria-hidden />
-        {badgeCount > 0 ? (
+        {data != null && displayBadgeCount > 0 ? (
           <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-            {badgeCount > 99 ? "99+" : badgeCount}
+            {displayBadgeCount > 99 ? "99+" : displayBadgeCount}
           </span>
         ) : null}
       </DropdownMenuTrigger>
@@ -235,15 +296,15 @@ export function NotificationsBell() {
                   </DropdownMenuGroup>
                 ) : null}
 
-                {friends.length > 0 && (sessionPartner.length > 0 || reminders.length > 0) ? (
+                {friends.length > 0 && (sessionPartnerUnread.length > 0 || visibleReminders.length > 0) ? (
                   <DropdownMenuSeparator className="my-0" />
                 ) : null}
 
-                {sessionPartner.length > 0 ? (
+                {sessionPartnerUnread.length > 0 ? (
                   <DropdownMenuGroup>
                     <DropdownMenuLabel className="px-2 py-1.5">Sessions</DropdownMenuLabel>
                     <ul className="flex flex-col gap-2">
-                      {sessionPartner.map((n) => {
+                      {sessionPartnerUnread.map((n) => {
                         const p = n.payload;
                         const sessionId = payloadStr(p.session_id);
                         const leagueId = payloadStr(p.league_id);
@@ -254,15 +315,25 @@ export function NotificationsBell() {
                           sessionId && leagueId
                             ? `/leagues/${leagueId}/sessions/${sessionId}`
                             : null;
-                        const unread = n.readAt == null;
                         return (
                           <li
                             key={n.id}
-                            className={cn(
-                              "rounded-lg border border-border/60 px-2 py-2",
-                              unread ? "bg-primary/5" : "bg-muted/20",
-                            )}
+                            className="relative rounded-lg border border-border/60 bg-primary/5 py-2 pl-2 pr-9"
                           >
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0.5 top-0.5 size-7 text-muted-foreground hover:text-foreground"
+                              aria-label="Dismiss notification"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void dismissSessionPartnerNotification(n.id);
+                              }}
+                            >
+                              <X className="size-4" />
+                            </Button>
                             <p className="text-sm font-medium leading-snug">
                               Partner: {partnerName}
                             </p>
@@ -287,22 +358,36 @@ export function NotificationsBell() {
                   </DropdownMenuGroup>
                 ) : null}
 
-                {sessionPartner.length > 0 && reminders.length > 0 ? (
+                {sessionPartnerUnread.length > 0 && visibleReminders.length > 0 ? (
                   <DropdownMenuSeparator className="my-0" />
                 ) : null}
 
-                {reminders.length > 0 ? (
+                {visibleReminders.length > 0 ? (
                   <DropdownMenuGroup>
                     <DropdownMenuLabel className="px-2 py-1.5">Reminders</DropdownMenuLabel>
                     <ul className="flex flex-col gap-2">
-                      {reminders.map((r) => {
+                      {visibleReminders.map((r) => {
                         const href = `/leagues/${r.leagueId}/sessions/${r.sessionId}`;
                         const whenLabel = r.when === "today" ? "Today" : "Tomorrow";
                         return (
                           <li
                             key={r.key}
-                            className="rounded-lg border border-border/60 bg-muted/25 px-2 py-2"
+                            className="relative rounded-lg border border-border/60 bg-muted/25 py-2 pl-2 pr-9"
                           >
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0.5 top-0.5 size-7 text-muted-foreground hover:text-foreground"
+                              aria-label="Dismiss reminder"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                dismissReminder(r.key);
+                              }}
+                            >
+                              <X className="size-4" />
+                            </Button>
                             <p className="text-sm font-medium">{whenLabel}: session</p>
                             <p className="text-xs text-muted-foreground">
                               {r.leagueName} · {r.sessionDate}

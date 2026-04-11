@@ -14,6 +14,9 @@ import {
   type InputMode,
   type GameRowInput,
 } from "@/app/actions/session-wizard";
+import type { MatchKind } from "@/lib/league-session-share-text";
+import { isoToDatetimeLocalValue } from "@/lib/league-session-share-text";
+import { LeagueSessionShareButton } from "@/components/league-session-share-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,7 +83,11 @@ function serializeEphemeralDraftSnapshot(input: {
   teamMode: "spin" | "manual";
   manualPick: string | null;
   playerSwapPick: { teamIdx: number; slot: 0 | 1 } | null;
-}) {
+  shareLocation: string;
+  shareDuration: string;
+  shareRestriction: string;
+  scheduledAtLocal: string;
+}): string {
   const teamsNorm = input.teams
     .map(([a, b]) => (a < b ? ([a, b] as [string, string]) : ([b, a] as [string, string])))
     .sort((x, y) => `${x[0]}\0${x[1]}`.localeCompare(`${y[0]}\0${y[1]}`));
@@ -94,6 +101,10 @@ function serializeEphemeralDraftSnapshot(input: {
     teamMode: input.teamMode,
     manualPick: input.manualPick,
     playerSwapPick: input.playerSwapPick,
+    shareLocation: input.shareLocation,
+    shareDuration: input.shareDuration,
+    shareRestriction: input.shareRestriction,
+    scheduledAtLocal: input.scheduledAtLocal,
   });
 }
 
@@ -110,6 +121,12 @@ export function SessionCreateWizard({
   initialTeams,
   initialGameRows,
   initialAttendingIds,
+  /** From DB for legacy sessions only — messaging, not editable. */
+  legacyMatchKind,
+  initialShareLocation,
+  initialShareDurationMinutes,
+  initialShareRestriction,
+  initialScheduledAt,
   sessionCompletionStatus = "draft",
   onFirstDraftSaved,
   onDraftDirtyChange,
@@ -130,6 +147,11 @@ export function SessionCreateWizard({
   initialGameRows?: GameRowState[];
   /** Roster order; defaults to roster players that appear in `initialTeams`. */
   initialAttendingIds?: string[];
+  legacyMatchKind?: MatchKind;
+  initialShareLocation?: string | null;
+  initialShareDurationMinutes?: number | null;
+  initialShareRestriction?: string | null;
+  initialScheduledAt?: string | null;
   /** Completed sessions hide “Complete session”; saves still update leaderboard and padel levels. */
   sessionCompletionStatus?: "draft" | "completed";
   /** When set and `sessionId` is null, first successful Save draft calls this instead of navigating to the editor. */
@@ -176,6 +198,21 @@ export function SessionCreateWizard({
     () => initialGameRows ?? [],
   );
   const [champCourt1WinsStr, setChampCourt1WinsStr] = useState<string[]>([]);
+
+  const [shareLocation, setShareLocation] = useState(
+    () => initialShareLocation?.trim() ?? "",
+  );
+  const [shareDuration, setShareDuration] = useState(() =>
+    initialShareDurationMinutes != null && initialShareDurationMinutes > 0
+      ? String(initialShareDurationMinutes)
+      : "",
+  );
+  const [shareRestriction, setShareRestriction] = useState(
+    () => initialShareRestriction?.trim() ?? "",
+  );
+  const [scheduledAtLocal, setScheduledAtLocal] = useState(() =>
+    isoToDatetimeLocalValue(initialScheduledAt ?? null),
+  );
 
   const numCourts = useMemo(() => {
     const t = courtsInput.trim();
@@ -274,6 +311,10 @@ export function SessionCreateWizard({
       teamMode,
       manualPick,
       playerSwapPick,
+      shareLocation,
+      shareDuration,
+      shareRestriction,
+      scheduledAtLocal,
     });
     if (ephemeralDraftSnapshotRef.current === null) {
       ephemeralDraftSnapshotRef.current = s;
@@ -294,7 +335,34 @@ export function SessionCreateWizard({
     teamMode,
     manualPick,
     playerSwapPick,
+    shareLocation,
+    shareDuration,
+    shareRestriction,
+    scheduledAtLocal,
   ]);
+
+  function persistSessionMeta() {
+    if (!sessionId) return;
+    let scheduledIso: string | null = null;
+    if (scheduledAtLocal.trim() !== "") {
+      const t = new Date(scheduledAtLocal);
+      if (!Number.isNaN(t.getTime())) scheduledIso = t.toISOString();
+    }
+    const durParsed = shareDuration.trim() === "" ? NaN : parseInt(shareDuration, 10);
+    const dur = Number.isFinite(durParsed) && durParsed > 0 ? durParsed : null;
+    startTransition(async () => {
+      const res = await updateSessionDraftMeta(leagueId, sessionId, {
+        date,
+        numCourts: effectiveCourts,
+        shareLocation: shareLocation.trim() || null,
+        shareDurationMinutes: dur,
+        shareRestriction: shareRestriction.trim() || null,
+        scheduledAt: scheduledIso,
+      });
+      if ("error" in res && res.error) toast.error(res.error);
+      else router.refresh();
+    });
+  }
 
   function toggleAttend(id: string) {
     setAttendingIds((prev) => {
@@ -498,9 +566,21 @@ export function SessionCreateWizard({
 
   function onSaveDraft() {
     startTransition(async () => {
+      let scheduledIso: string | null = null;
+      if (scheduledAtLocal.trim() !== "") {
+        const t = new Date(scheduledAtLocal);
+        if (!Number.isNaN(t.getTime())) scheduledIso = t.toISOString();
+      }
+      const durParsed = shareDuration.trim() === "" ? NaN : parseInt(shareDuration, 10);
+      const dur =
+        Number.isFinite(durParsed) && durParsed > 0 ? durParsed : null;
       const res = await saveNewSessionDraft(leagueId, {
         date,
         numCourts: effectiveCourts,
+        shareLocation: shareLocation.trim(),
+        shareDurationMinutes: dur,
+        shareRestriction: shareRestriction.trim(),
+        scheduledAt: scheduledIso,
         teams: teams.map(([playerA, playerB]) => ({ playerA, playerB })),
         games: buildGamesForDraft(),
         court1Rows: buildCourt1ForDraft(),
@@ -610,7 +690,11 @@ export function SessionCreateWizard({
         toast.error(res.error);
         return;
       }
-      toast.success("Session completed — leaderboard updated");
+      toast.success(
+        legacyMatchKind === "friendly"
+          ? "Session completed — league stats updated (global skill unchanged)."
+          : "Session completed — leaderboard and global skill updated.",
+      );
       router.push(`/leagues/${leagueId}/sessions/${sessionId}`);
       router.refresh();
     });
@@ -705,11 +789,78 @@ export function SessionCreateWizard({
       {isCompletedSession ? (
         <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
           This session is <span className="font-medium text-foreground">complete</span>. Saving still updates
-          standings and padel levels for players here.
+          league standings here.
+          {legacyMatchKind === "friendly" ? (
+            <>
+              {" "}
+              <span className="font-medium text-foreground">Friendly</span> — global skill rating was not
+              changed.
+            </>
+          ) : (
+            <>
+              {" "}
+              Global skill rating can be adjusted if you change results (competitive session).
+            </>
+          )}
         </div>
       ) : null}
       <section className="flex flex-col gap-4">
         <h2 className="text-sm font-semibold tracking-tight">Session details</h2>
+
+        <div className="space-y-4 rounded-xl border border-border/80 bg-muted/15 p-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="sess-location">Location (optional)</Label>
+              <Input
+                id="sess-location"
+                value={shareLocation}
+                onChange={(e) => setShareLocation(e.target.value)}
+                onBlur={() => sessionId && persistSessionMeta()}
+                placeholder="e.g. Doha"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sess-duration">Duration (minutes, optional)</Label>
+              <Input
+                id="sess-duration"
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                value={shareDuration}
+                onChange={(e) => setShareDuration(e.target.value)}
+                onBlur={() => sessionId && persistSessionMeta()}
+                placeholder="60"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sess-start-local">Start date &amp; time (optional)</Label>
+              <Input
+                id="sess-start-local"
+                type="datetime-local"
+                value={scheduledAtLocal}
+                onChange={(e) => setScheduledAtLocal(e.target.value)}
+                onBlur={() => sessionId && persistSessionMeta()}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="sess-restriction">Restriction (optional)</Label>
+              <Input
+                id="sess-restriction"
+                value={shareRestriction}
+                onChange={(e) => setShareRestriction(e.target.value)}
+                onBlur={() => sessionId && persistSessionMeta()}
+                placeholder="e.g. Women only"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Share fields are used for the “Share match” message (Playtomic-style). They do not change how
+            results are stored.
+          </p>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="sess-date">Session date</Label>
           <Input
@@ -1576,6 +1727,12 @@ export function SessionCreateWizard({
           </>
         )}
       </section>
+
+      {hasPersistedSession ? (
+        <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-6">
+          <LeagueSessionShareButton leagueId={leagueId} sessionId={sessionId!} />
+        </div>
+      ) : null}
 
       {!hasPersistedSession ? (
         <footer className="mt-2 border-t border-border pt-8">
