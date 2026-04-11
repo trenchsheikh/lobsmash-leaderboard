@@ -20,21 +20,12 @@ export default async function LoginPage({ searchParams }: PageProps) {
     : "/sign-up";
 
   return (
-    <div className="flex w-full min-w-0 flex-1 flex-col items-stretch justify-start gap-4 py-1 sm:items-center sm:justify-center sm:gap-6 sm:py-4">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
       <SignIn
         path="/login"
         routing="path"
         fallbackRedirectUrl={fallbackRedirectUrl}
         signUpUrl={signUpUrl}
-        appearance={{
-          elements: {
-            rootBox: "w-full max-w-full",
-            card: "w-full max-w-full shadow-lg border border-border/60 sm:shadow-xl",
-            cardBox: "w-full",
-            formButtonPrimary:
-              "bg-primary text-primary-foreground hover:bg-primary/90 font-medium",
-          },
-        }}
       />
     </div>
   );
