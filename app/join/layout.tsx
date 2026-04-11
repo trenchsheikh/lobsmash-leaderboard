@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export default function JoinLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-[100dvh] flex-1 flex-col bg-background">
+    <div className="flex min-h-[100dvh] flex-1 flex-col bg-transparent">
       <BrandShellHeader centered />
 
       <div className="relative flex min-h-0 flex-1 flex-col">
@@ -21,7 +21,7 @@ export default function JoinLayout({ children }: { children: React.ReactNode }) 
           className={cn(
             "relative flex flex-1 flex-col items-center justify-center",
             "px-4 py-6 sm:px-6 sm:py-10",
-            "pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]",
+            "pb-6",
           )}
         >
           {children}

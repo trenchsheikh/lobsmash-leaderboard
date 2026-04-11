@@ -130,7 +130,7 @@ export default async function PublicGamePage({ params }: PageProps) {
   const loginHref = `/login?redirect_url=${encodeURIComponent(redirectTarget)}`;
 
   return (
-    <div className="flex min-h-[100dvh] flex-1 flex-col bg-background">
+    <div className="flex min-h-[100dvh] flex-1 flex-col bg-transparent">
       <BrandShellHeader centered />
 
       <div className="relative flex min-h-0 flex-1 flex-col">
@@ -147,7 +147,7 @@ export default async function PublicGamePage({ params }: PageProps) {
         <div
           className={cn(
             "relative flex flex-1 flex-col items-center justify-center px-4 py-10 sm:px-6",
-            "pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]",
+            "pb-6",
           )}
         >
           <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-border/70 bg-card/95 px-6 py-8 shadow-lg backdrop-blur-md">

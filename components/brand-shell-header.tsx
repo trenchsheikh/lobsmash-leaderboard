@@ -24,7 +24,6 @@ export function BrandShellHeader({ subtitle, href = "/", className, centered }: 
         className={cn(
           "mx-auto flex h-14 max-w-2xl items-center gap-3 px-4 sm:h-[3.75rem] sm:px-6",
           centered ? "justify-center" : "justify-between",
-          "pt-[max(0px,env(safe-area-inset-top))]",
         )}
       >
         <Link

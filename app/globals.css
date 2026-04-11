@@ -166,24 +166,35 @@
     @apply border-border outline-ring/50;
   }
   /**
-   * No document-level background: each layout paints its own canvas (e.g. MainShellBackground,
-   * bg-background on route shells) so Safari/iOS never shows a separate strip behind the app.
+   * Document canvas: gradient + base color on html so Safari never flashes the default
+   * canvas behind the dynamic toolbars. Dynamic viewport height (dvh) tracks visible height
+   * as iOS browser chrome shows or hides. Safe-area padding on body is the single inset for
+   * page content; fixed overlays (e.g. drawers) still use env() where needed.
    */
-  body {
-    @apply text-foreground;
-    min-height: 100%;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
-    background-color: transparent;
-    background-image: none;
-  }
   html {
     @apply font-sans;
-    min-height: 100%;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    background-color: var(--background);
+    background-image: var(--shell-gradient);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center top;
+  }
+  body {
+    @apply text-foreground;
+    height: 100%;
+    min-height: 100vh;
     min-height: 100dvh;
     min-height: -webkit-fill-available;
     background-color: transparent;
     background-image: none;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
   }
 }
 
@@ -201,7 +212,6 @@
     bottom: calc(-1 * constant(safe-area-inset-bottom, 0px));
     left: calc(-1 * constant(safe-area-inset-left, 0px));
     min-height: 100dvh;
-    min-height: 100lvh;
   }
 
   @supports (padding: env(safe-area-inset-top)) {
