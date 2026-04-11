@@ -19,8 +19,12 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
-      <aside className="relative order-1 min-h-[38vh] w-full flex-1 lg:min-h-dvh lg:w-1/2 lg:max-w-[50vw]">
+    <div className="flex min-h-full flex-1 flex-col bg-background lg:min-h-0 lg:flex-row">
+      {/*
+        Mobile: fixed-height hero band so the sign-in card gets predictable space; desktop: half-width column.
+        max-lg rounded main below ties the two panels together visually on small screens.
+      */}
+      <aside className="relative order-1 flex h-[min(40vh,24rem)] w-full shrink-0 flex-col overflow-hidden sm:h-[min(42vh,26rem)] lg:order-none lg:h-auto lg:min-h-full lg:w-1/2 lg:max-w-[50vw] lg:flex-1">
         <div className="absolute inset-0">
           <Image
             src="/signin-page.png"
@@ -42,28 +46,30 @@ export default function AuthLayout({
           <FilmGrainOverlay />
         </div>
 
-        <div className="pointer-events-none relative z-10 flex min-h-[38vh] flex-col justify-end p-6 pb-8 sm:p-8 sm:pb-10 lg:min-h-dvh lg:pb-12">
-          <div className="pointer-events-auto flex max-w-sm flex-col items-start gap-3 text-left">
+        <div className="pointer-events-none relative z-10 flex h-full min-h-0 flex-col justify-end p-5 pb-6 sm:p-7 sm:pb-9 lg:pb-12">
+          <div className="pointer-events-auto flex max-w-sm flex-col items-start gap-2.5 text-left sm:gap-3">
             <Image
               src="/lobsmash-logo-removebg-preview.png"
               alt="LobSmash"
               width={500}
               height={500}
-              className="h-10 w-auto max-w-[200px] object-contain object-left drop-shadow-md sm:h-11"
+              className="h-9 w-auto max-w-[min(200px,70vw)] object-contain object-left drop-shadow-md sm:h-11"
             />
-            <p className="text-pretty text-sm font-medium leading-snug text-white/90 drop-shadow-md sm:text-base">
+            <p className="text-pretty text-[13px] font-medium leading-snug text-white/90 drop-shadow-md sm:text-sm sm:text-base">
               One place for the leagues you run, the sessions you play, and the standings everyone can trust.
             </p>
           </div>
         </div>
       </aside>
 
-      <main className="relative order-2 flex min-h-0 flex-1 flex-col justify-center overflow-hidden px-4 py-8 sm:px-6 sm:py-10 lg:w-1/2 lg:px-10 lg:py-12">
+      <main className="relative order-2 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pt-5 pb-8 sm:px-6 sm:pt-6 sm:pb-10 lg:w-1/2 lg:justify-center lg:px-10 lg:py-12 max-lg:rounded-t-[1.75rem] max-lg:shadow-[0_-10px_40px_-12px_rgba(0,45,98,0.14)] dark:max-lg:shadow-[0_-10px_40px_-12px_rgba(0,0,0,0.35)]">
         <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-navy/30 via-brand-navy/18 via-40% to-brand-lime/14 dark:from-brand-navy/55 dark:via-brand-navy/32 dark:via-45% dark:to-brand-lime/10"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-navy/30 via-brand-navy/18 via-40% to-brand-lime/14 dark:from-brand-navy/55 dark:via-brand-navy/32 dark:via-45% dark:to-brand-lime/10 max-lg:rounded-t-[1.75rem]"
           aria-hidden
         />
-        <div className="relative z-10 mx-auto w-full max-w-md">{children}</div>
+        <div className="relative z-10 mx-auto flex w-full min-w-0 max-w-md flex-1 flex-col justify-start lg:justify-center">
+          {children}
+        </div>
       </main>
     </div>
   );

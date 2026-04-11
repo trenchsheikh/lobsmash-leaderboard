@@ -166,10 +166,10 @@
     @apply border-border outline-ring/50;
   }
   /**
-   * Document canvas: gradient + base color on html so Safari never flashes the default
-   * canvas behind the dynamic toolbars. Dynamic viewport height (dvh) tracks visible height
-   * as iOS browser chrome shows or hides. Safe-area padding on body is the single inset for
-   * page content; fixed overlays (e.g. drawers) still use env() where needed.
+   * Document shell: same canvas on html, body, and .app-root so no intermediate layer
+   * stays short or shows the UA default (Safari toolbars / safe areas). Tokens live on
+   * :root; paint is repeated at each level for a continuous fill. Dynamic viewport (dvh)
+   * + safe-area padding on body only.
    */
   html {
     @apply font-sans;
@@ -177,24 +177,39 @@
     min-height: 100vh;
     min-height: 100dvh;
     min-height: -webkit-fill-available;
+  }
+
+  html,
+  body.app-body,
+  .app-root {
     background-color: var(--background);
     background-image: var(--shell-gradient);
     background-repeat: no-repeat;
     background-size: cover;
     background-position: center top;
   }
-  body {
+
+  body.app-body {
     @apply text-foreground;
+    display: flex;
+    flex-direction: column;
     height: 100%;
     min-height: 100vh;
     min-height: 100dvh;
     min-height: -webkit-fill-available;
-    background-color: transparent;
-    background-image: none;
+    margin: 0;
     padding-top: env(safe-area-inset-top, 0px);
     padding-right: env(safe-area-inset-right, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
     padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  .app-root {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
   }
 }
 

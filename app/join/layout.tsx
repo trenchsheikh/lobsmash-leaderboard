@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export default function JoinLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-[100dvh] flex-1 flex-col bg-transparent">
+    <div className="flex min-h-full flex-1 flex-col bg-transparent">
       <BrandShellHeader centered />
 
       <div className="relative flex min-h-0 flex-1 flex-col">

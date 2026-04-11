@@ -130,7 +130,7 @@ export default async function PublicGamePage({ params }: PageProps) {
   const loginHref = `/login?redirect_url=${encodeURIComponent(redirectTarget)}`;
 
   return (
-    <div className="flex min-h-[100dvh] flex-1 flex-col bg-transparent">
+    <div className="flex min-h-full flex-1 flex-col bg-transparent">
       <BrandShellHeader centered />
 
       <div className="relative flex min-h-0 flex-1 flex-col">
