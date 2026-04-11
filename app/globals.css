@@ -213,34 +213,16 @@
 
 @layer utilities {
   /**
-   * Full-bleed fixed shell backdrop on mobile (iOS safe areas).
-   * Legacy constant() then env(); md+ resets to inset 0.
+   * Grain layer: absolute inside the main shell (position: relative) so it grows with
+   * scroll content — same idea as the auth layout, unlike fixed + 100dvh which only
+   * covered the first screen on iOS.
    */
   .main-shell-bg-root {
-    position: fixed;
+    position: absolute;
     z-index: 0;
     pointer-events: none;
-    top: calc(-1 * constant(safe-area-inset-top, 0px));
-    right: calc(-1 * constant(safe-area-inset-right, 0px));
-    bottom: calc(-1 * constant(safe-area-inset-bottom, 0px));
-    left: calc(-1 * constant(safe-area-inset-left, 0px));
-    min-height: 100dvh;
-  }
-
-  @supports (padding: env(safe-area-inset-top)) {
-    .main-shell-bg-root {
-      top: calc(-1 * env(safe-area-inset-top, 0px));
-      right: calc(-1 * env(safe-area-inset-right, 0px));
-      bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
-      left: calc(-1 * env(safe-area-inset-left, 0px));
-    }
-  }
-
-  @media (min-width: 768px) {
-    .main-shell-bg-root {
-      inset: 0;
-      min-height: unset;
-    }
+    inset: 0;
+    min-height: 100%;
   }
 
   /** Fractal noise tile for shell backdrop (no external asset). */
