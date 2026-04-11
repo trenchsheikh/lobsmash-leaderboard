@@ -165,13 +165,16 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /**
+   * No document-level background: each layout paints its own canvas (e.g. MainShellBackground,
+   * bg-background on route shells) so Safari/iOS never shows a separate strip behind the app.
+   */
   body {
     @apply text-foreground;
     min-height: 100%;
     min-height: 100dvh;
     min-height: -webkit-fill-available;
-    /* Match canvas so iOS safe areas / subpixel gaps never flash default white */
-    background-color: var(--background);
+    background-color: transparent;
     background-image: none;
   }
   html {
@@ -179,13 +182,8 @@
     min-height: 100%;
     min-height: 100dvh;
     min-height: -webkit-fill-available;
-    background-color: var(--background);
-    background-image: var(--shell-gradient);
-    background-repeat: no-repeat;
-    background-size: cover;
-    background-attachment: scroll;
-    /* Paints edge-to-edge with viewport-fit=cover (notch + home indicator) */
-    background-position: center top;
+    background-color: transparent;
+    background-image: none;
   }
 }
 

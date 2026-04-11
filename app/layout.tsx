@@ -45,11 +45,6 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  /** Safari / iOS browser UI + overscroll: match app canvas (see globals --background) */
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f7fb" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a1f38" },
-  ],
 };
 
 export default function RootLayout({
