@@ -338,7 +338,7 @@ export function PairTeamStatsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(92vh,52rem)] max-h-[min(92vh,52rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden border-border/80 bg-card p-0 sm:max-w-2xl">
+      <DialogContent className="flex h-[min(100dvh,52rem)] max-h-[min(100dvh,52rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden border-border/80 bg-card p-0 sm:max-w-2xl">
         <DialogHeader className="shrink-0 border-b border-border/60 bg-muted/20 px-4 py-4 sm:px-6">
           <DialogTitle className="font-heading text-lg">Team together</DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-muted-foreground">

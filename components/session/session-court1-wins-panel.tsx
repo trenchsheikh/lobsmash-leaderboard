@@ -254,11 +254,17 @@ export function SessionCourt1WinsPanel({
           <Table>
             <TableHeader>
               <TableRow className="border-border/80 bg-muted/40 hover:bg-muted/40 dark:bg-muted/25">
-                <TableHead className="min-w-[12rem] pl-4 font-semibold sm:min-w-[16rem] sm:pl-5">
+                <TableHead className="min-w-0 pl-3 font-semibold sm:min-w-[16rem] sm:pl-5">
                   Team
                 </TableHead>
-                <TableHead className="text-right font-semibold sm:pr-5">Exp Win (levels)</TableHead>
-                <TableHead className="text-right font-semibold sm:pr-5">Wins on court 1</TableHead>
+                <TableHead className="min-w-0 text-right font-semibold sm:pr-5">
+                  <span className="sm:hidden">Exp Win</span>
+                  <span className="hidden sm:inline">Exp Win (levels)</span>
+                </TableHead>
+                <TableHead className="min-w-0 text-right font-semibold sm:pr-5">
+                  <span className="sm:hidden">C1 wins</span>
+                  <span className="hidden sm:inline">Wins on court 1</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -295,10 +301,13 @@ export function SessionCourt1WinsPanel({
           <Table>
             <TableHeader>
               <TableRow className="border-border/80 bg-muted/40 hover:bg-muted/40 dark:bg-muted/25">
-                <TableHead className="min-w-[12rem] pl-4 font-semibold sm:min-w-[16rem] sm:pl-5">
+                <TableHead className="min-w-0 pl-3 font-semibold sm:min-w-[12rem] sm:pl-5">
                   Team
                 </TableHead>
-                <TableHead className="text-right font-semibold sm:pr-5">Wins on court 1</TableHead>
+                <TableHead className="min-w-0 text-right font-semibold sm:pr-5">
+                  <span className="sm:hidden">C1 wins</span>
+                  <span className="hidden sm:inline">Wins on court 1</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -25,6 +25,7 @@ import {
   DISPLAY_SKILL_MIN,
   formatDisplayLevel,
 } from "@/lib/rating";
+import { useIsMaxSm } from "@/lib/use-is-max-sm";
 import { cn } from "@/lib/utils";
 
 export type RatingHistoryPoint = {
@@ -96,6 +97,7 @@ export function ProfileRatingChart({
   presentation = "inline",
 }: ProfileRatingChartProps) {
   const [range, setRange] = useState<RangeKey>("all");
+  const narrowMobile = useIsMaxSm();
 
   const visible = useMemo(() => sliceHistory(history, range), [history, range]);
 
@@ -170,7 +172,7 @@ export function ProfileRatingChart({
 
   const windowToolbar = (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <span className="hidden text-xs font-medium uppercase tracking-wide text-muted-foreground sm:inline">
         Window
       </span>
       <div className="flex flex-wrap gap-1">
@@ -180,7 +182,7 @@ export function ProfileRatingChart({
             type="button"
             variant={range === opt.key ? "secondary" : "ghost"}
             size="sm"
-            className="h-8 rounded-lg px-2.5 text-xs"
+            className="h-9 min-h-9 rounded-lg px-2.5 text-xs sm:h-8 sm:min-h-8"
             onClick={() => setRange(opt.key)}
           >
             {opt.label}
@@ -191,8 +193,17 @@ export function ProfileRatingChart({
   );
 
   const chartOuterHeight = framed
-    ? "h-[220px] min-h-[220px] sm:h-[240px] sm:min-h-[240px]"
-    : "h-[240px] min-h-[240px] sm:h-[260px] sm:min-h-[260px]";
+    ? "h-[200px] min-h-[200px] sm:h-[240px] sm:min-h-[240px]"
+    : "h-[220px] min-h-[220px] sm:h-[260px] sm:min-h-[260px]";
+
+  const lineMargins = narrowMobile
+    ? { left: framed ? 0 : 0, right: 4, top: 6, bottom: 2 }
+    : {
+        left: framed ? 8 : 4,
+        right: 12,
+        top: 8,
+        bottom: 4,
+      };
 
   const chartBlock = (
     <div className={cn("w-full min-w-0", chartOuterHeight)}>
@@ -200,29 +211,24 @@ export function ProfileRatingChart({
         <LineChart
           accessibilityLayer
           data={chartRows}
-          margin={{
-            left: framed ? 8 : 4,
-            right: 12,
-            top: 8,
-            bottom: 4,
-          }}
+          margin={lineMargins}
         >
           <CartesianGrid vertical={false} className="stroke-border/50" />
           <XAxis
             dataKey="label"
             tickLine={false}
             axisLine={false}
-            tickMargin={8}
+            tickMargin={narrowMobile ? 4 : 8}
             interval="preserveStartEnd"
-            minTickGap={28}
+            minTickGap={narrowMobile ? 42 : 28}
           />
           <YAxis
             dataKey="skill"
             domain={yDomain}
             tickLine={false}
             axisLine={false}
-            tickMargin={8}
-            width={40}
+            tickMargin={narrowMobile ? 4 : 8}
+            width={narrowMobile ? 32 : 40}
             tickFormatter={(v) => `${v}`}
           />
           <ChartTooltip

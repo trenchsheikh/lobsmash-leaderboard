@@ -85,7 +85,7 @@ export default function RootLayout({
           </ClerkProvider>
         </div>
         <div className="shrink-0">
-          <Toaster richColors position="top-right" />
+          <Toaster richColors />
         </div>
       </body>
     </html>

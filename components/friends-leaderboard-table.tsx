@@ -48,7 +48,7 @@ export function FriendsLeaderboardTable({
       <div
         className={cn(
           "rounded-lg border border-border/60",
-          !paginate && "max-h-[min(70vh,44rem)] overflow-auto",
+          !paginate && "max-h-[min(70dvh,44rem)] overflow-auto",
         )}
       >
         <Table>

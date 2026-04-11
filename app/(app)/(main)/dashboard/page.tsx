@@ -339,7 +339,17 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-7">
       <PageHeader
         title="Dashboard"
-        description="Ratings and stats for players and clubs—run a league or spin up an open session; league matches stay under each league."
+        description={
+          <>
+            <span className="sm:hidden">
+              Ratings, leagues, and open sessions in one place.
+            </span>
+            <span className="hidden sm:inline">
+              Ratings and stats for players and clubs—run a league or spin up an open session; league matches
+              stay under each league.
+            </span>
+          </>
+        }
       />
 
       <div className="grid gap-6 md:grid-cols-2 md:items-start">
@@ -355,8 +365,11 @@ export default async function DashboardPage() {
               Join a league
             </CardTitle>
             <CardDescription className="text-pretty text-foreground/85">
-              Paste an invite link or enter the 8-character league code. Every join is a request—
-              organisers approve before you are added.
+              <span className="sm:hidden">Paste a link or code. Organisers approve joins.</span>
+              <span className="hidden sm:block">
+                Paste an invite link or enter the 8-character league code. Every join is a request—organisers
+                approve before you are added.
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
@@ -410,7 +423,9 @@ export default async function DashboardPage() {
                           <Trophy className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
                           <div className="min-w-0 flex-1 space-y-2">
                             <div className="flex flex-wrap items-start justify-between gap-2">
-                              <p className="font-heading text-base font-semibold leading-tight">{row.name}</p>
+                              <p className="font-heading text-sm font-semibold leading-tight sm:text-base">
+                                {row.name}
+                              </p>
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <Badge variant="secondary" className="font-normal">
                                   League
@@ -454,7 +469,9 @@ export default async function DashboardPage() {
                           <Clock className="mt-0.5 size-5 shrink-0 text-amber-600/90 dark:text-amber-400/90" aria-hidden />
                           <div className="min-w-0 flex-1 space-y-2">
                             <div className="flex flex-wrap items-start justify-between gap-2">
-                              <p className="font-heading text-base font-semibold leading-tight">{row.name}</p>
+                              <p className="font-heading text-sm font-semibold leading-tight sm:text-base">
+                                {row.name}
+                              </p>
                               <Badge variant="secondary" className="font-normal">
                                 {formatDisplayName(row.format)}
                               </Badge>
@@ -508,7 +525,7 @@ export default async function DashboardPage() {
                                 <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                                   Open match
                                 </p>
-                                <p className="font-heading text-base font-semibold leading-tight text-foreground">
+                                <p className="font-heading text-sm font-semibold leading-tight text-foreground sm:text-base">
                                   {row.title?.trim() || OPEN_MATCH_LABEL}
                                 </p>
                               </div>
@@ -570,7 +587,7 @@ export default async function DashboardPage() {
                 )}
               </ul>
 
-              <div className="hidden max-h-[min(60vh,36rem)] w-full overflow-auto md:block">
+              <div className="hidden max-h-[min(60dvh,36rem)] w-full overflow-auto md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>

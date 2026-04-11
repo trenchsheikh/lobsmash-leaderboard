@@ -20,6 +20,7 @@ import {
   radarAxisLabels,
   type RadarAxes,
 } from "@/lib/player-radar-scores";
+import { useIsMaxSm } from "@/lib/use-is-max-sm";
 import { cn } from "@/lib/utils";
 
 const chartConfig = {
@@ -42,9 +43,11 @@ export function RadarHexagon({
   className,
   labelFontSize = 3.55,
 }: RadarHexagonProps) {
+  const narrowMobile = useIsMaxSm();
+
   const tickFontSize = Math.max(
-    9,
-    Math.round((labelFontSize / 3.55) * 10),
+    narrowMobile ? 8 : 9,
+    Math.round((labelFontSize / 3.55) * (narrowMobile ? 9 : 10)),
   );
 
   const chartData = useMemo(() => {
@@ -61,15 +64,19 @@ export function RadarHexagon({
       <ChartContainer
         config={chartConfig}
         className={cn(
-          "mx-auto aspect-square h-full max-h-[300px] w-full max-w-[300px] overflow-visible",
+          "mx-auto aspect-square h-full max-h-[min(300px,calc(100vw-2rem))] w-full max-w-[min(300px,calc(100vw-2rem))] overflow-visible",
           "[&_.recharts-responsive-container]:overflow-visible [&_.recharts-wrapper]:overflow-visible [&_.recharts-surface]:overflow-visible",
           "[&_.recharts-polar-angle-axis-tick_text]:fill-muted-foreground [&_.recharts-polar-angle-axis-tick_text]:font-semibold [&_.recharts-polar-angle-axis-tick_text]:uppercase [&_.recharts-polar-angle-axis-tick_text]:tracking-wide",
         )}
       >
         <RadarChart
           data={chartData}
-          margin={{ top: 24, right: 32, bottom: 24, left: 32 }}
-          outerRadius="62%"
+          margin={
+            narrowMobile
+              ? { top: 14, right: 18, bottom: 14, left: 18 }
+              : { top: 24, right: 32, bottom: 24, left: 32 }
+          }
+          outerRadius={narrowMobile ? "58%" : "62%"}
         >
           <ChartTooltip
             cursor={false}

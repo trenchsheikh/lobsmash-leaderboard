@@ -314,12 +314,17 @@ export function PlayerProfileAnalyticsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(92vh,48rem)] w-full max-w-lg flex-col overflow-hidden border-border/80 bg-card p-0 sm:max-w-xl">
+      <DialogContent className="flex max-h-[min(100dvh,48rem)] w-full max-w-lg flex-col overflow-hidden border-border/80 bg-card p-0 sm:max-w-xl">
         <DialogHeader className="shrink-0 border-b border-border/60 bg-muted/20 px-4 py-4 sm:px-6">
           <DialogTitle className="font-heading text-lg">Player profile</DialogTitle>
-          <DialogDescription className="text-xs">
-            Self-reported style and global skill from completed sessions. League row includes
-            completed sessions only; live in-progress sessions on the league can update the preview.
+          <DialogDescription className="text-xs sm:text-sm">
+            <span className="block sm:inline">
+              Self-reported style and global skill from completed sessions.
+            </span>{" "}
+            <span className="hidden sm:inline">
+              League row includes completed sessions only; live in-progress sessions on the league can
+              update the preview.
+            </span>
           </DialogDescription>
         </DialogHeader>
 

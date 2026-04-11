@@ -8,12 +8,16 @@ import {
   OctagonXIcon,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { useIsMaxSm } from "@/lib/use-is-max-sm";
 
 const Toaster = ({ ...props }: ToasterProps) => {
+  const mobile = useIsMaxSm();
+
   return (
     <Sonner
       theme="system"
-      className="toaster group"
+      position={mobile ? "bottom-center" : "top-right"}
+      className="toaster group max-sm:[--offset-bottom:max(1rem,env(safe-area-inset-bottom,0px))]"
       closeButton
       icons={{
         success: <CircleCheckIcon className="size-4" />,

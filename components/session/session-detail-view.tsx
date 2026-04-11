@@ -214,10 +214,10 @@ export function SessionDetailView({
               {canAdmin ? <Shield className="size-5" aria-hidden /> : <UserRound className="size-5" aria-hidden />}
             </span>
             <div className="min-w-0 space-y-1">
-              <p className="font-heading text-base font-semibold tracking-tight text-foreground">
+              <p className="font-heading text-sm font-semibold tracking-tight text-foreground sm:text-base">
                 You&apos;re in this session
               </p>
-              <p className="text-sm leading-relaxed text-muted-foreground">
+              <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
                 {canAdmin
                   ? "Edit teams and scores from Edit session, then mark complete when results are final."
                   : "League admins enter scores and mark the session complete. Review teams and results here anytime."}
@@ -233,8 +233,8 @@ export function SessionDetailView({
             <Eye className="size-5" aria-hidden />
           </span>
           <div className="min-w-0 space-y-1">
-            <p className="font-medium text-foreground">Spectator view</p>
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            <p className="text-sm font-medium text-foreground">Spectator view</p>
+            <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
               You&apos;re viewing as a league member. Only admins can change teams or scores.
             </p>
           </div>
@@ -339,9 +339,12 @@ export function SessionDetailView({
               <Trophy className="size-5 text-amber-600 dark:text-amber-400" aria-hidden />
               <CardTitle className="font-heading text-xl tracking-tight">Court 1 wins</CardTitle>
             </div>
-            <CardDescription className="max-w-3xl text-pretty text-sm leading-relaxed sm:text-[15px]">
-              Championship court only — other courts are not recorded. Exp Win (levels) uses global padel ratings
-              (softmax over pairs in this session).
+            <CardDescription className="max-w-3xl text-pretty leading-relaxed sm:text-[15px]">
+              <span className="sm:hidden">Court 1 only. Exp Win uses global ratings.</span>
+              <span className="hidden sm:inline">
+                Championship court only — other courts are not recorded. Exp Win (levels) uses global padel
+                ratings (softmax over pairs in this session).
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 pt-6">
@@ -366,9 +369,20 @@ export function SessionDetailView({
             <CardTitle className="font-heading text-xl tracking-tight">Games</CardTitle>
           </div>
           <CardDescription className="text-pretty leading-relaxed">
-            {isChampOnly
-              ? "Per-game scores are not used in court 1 only mode. Legacy rows may appear if this session was recorded before that change."
-              : "Courts, teams, and results. Side odds use global padel levels."}
+            {isChampOnly ? (
+              <>
+                <span className="sm:hidden">Scores hidden in court 1–only mode.</span>
+                <span className="hidden sm:inline">
+                  Per-game scores are not used in court 1 only mode. Legacy rows may appear if this session was
+                  recorded before that change.
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="sm:hidden">Courts, teams, results; odds from levels.</span>
+                <span className="hidden sm:inline">Courts, teams, and results. Side odds use global padel levels.</span>
+              </>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">

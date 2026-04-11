@@ -143,7 +143,7 @@ export function LeaguePlayerStandingsBoard({
         <div
           className={cn(
             "rounded-xl border border-border/60",
-            !paginatePlayers && "max-h-[min(70vh,44rem)] overflow-auto",
+            !paginatePlayers && "max-h-[min(70dvh,44rem)] overflow-auto",
             scrollClassName,
           )}
         >
@@ -396,7 +396,7 @@ export function LeaguePairStandingsBoard({
         <div
           className={cn(
             "rounded-xl border border-border/60",
-            !paginatePairs && "max-h-[min(70vh,44rem)] overflow-auto",
+            !paginatePairs && "max-h-[min(70dvh,44rem)] overflow-auto",
             scrollClassName,
           )}
         >

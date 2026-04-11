@@ -68,7 +68,7 @@ const ChartContainer = React.forwardRef<
         <ChartStyle id={chartId} config={config} />
         <RechartsPrimitive.ResponsiveContainer
           minHeight={200}
-          initialDimension={{ width: 800, height: 320 }}
+          initialDimension={{ width: 360, height: 280 }}
         >
           {children}
         </RechartsPrimitive.ResponsiveContainer>
@@ -208,7 +208,7 @@ const ChartTooltipContent = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          "grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
+          "grid min-w-[8rem] max-w-[min(100vw-2rem,20rem)] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
           className,
         )}
       >

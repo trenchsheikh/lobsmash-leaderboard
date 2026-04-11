@@ -81,7 +81,7 @@ import { ListPagination } from "@/components/list-pagination";
 import { PAGE_SIZE, slicePage } from "@/lib/paginate";
 
 const tableScroll =
-  "max-h-[min(70vh,44rem)] overflow-auto rounded-md border border-border/50";
+  "max-h-[min(70dvh,44rem)] overflow-auto rounded-md border border-border/50";
 const tableBorderOnly = "rounded-md border border-border/50";
 
 type PairModalSection = "team" | "low" | "high";
@@ -360,14 +360,41 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
   return (
     <Tabs value={tab} onValueChange={setTab} className="w-full">
       <TabsList
-        className="mb-1 flex h-auto min-h-10 w-full flex-wrap gap-1 rounded-xl border border-border/60 bg-muted/40 p-1.5"
+        className="mb-1 flex h-auto min-h-10 w-full snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-hidden rounded-xl border border-border/60 bg-muted/40 p-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         aria-label="League sections"
       >
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="standings">Standings</TabsTrigger>
-        <TabsTrigger value="people">People</TabsTrigger>
-        <TabsTrigger value="sessions">Sessions</TabsTrigger>
-        {canAdmin ? <TabsTrigger value="manage">Manage</TabsTrigger> : null}
+        <TabsTrigger
+          value="overview"
+          className="shrink-0 snap-start px-2.5 text-xs sm:px-3 sm:text-sm"
+        >
+          Overview
+        </TabsTrigger>
+        <TabsTrigger
+          value="standings"
+          className="shrink-0 snap-start px-2.5 text-xs sm:px-3 sm:text-sm"
+        >
+          Standings
+        </TabsTrigger>
+        <TabsTrigger
+          value="people"
+          className="shrink-0 snap-start px-2.5 text-xs sm:px-3 sm:text-sm"
+        >
+          People
+        </TabsTrigger>
+        <TabsTrigger
+          value="sessions"
+          className="shrink-0 snap-start px-2.5 text-xs sm:px-3 sm:text-sm"
+        >
+          Sessions
+        </TabsTrigger>
+        {canAdmin ? (
+          <TabsTrigger
+            value="manage"
+            className="shrink-0 snap-start px-2.5 text-xs sm:px-3 sm:text-sm"
+          >
+            Manage
+          </TabsTrigger>
+        ) : null}
       </TabsList>
 
       <TabsContent value="overview" className="space-y-6">
@@ -376,8 +403,13 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
             <Badge variant="outline" className="mr-2 align-middle">
               Live
             </Badge>
-            Standings include in-progress live sessions. Skill preview updates as results are entered;
-            official ratings apply when a session is completed.
+            <span className="sm:hidden">
+              In-progress sessions count; ratings finalize when complete.
+            </span>
+            <span className="hidden sm:inline">
+              Standings include in-progress live sessions. Skill preview updates as results are entered;
+              official ratings apply when a session is completed.
+            </span>
           </p>
         ) : null}
         {inviteUrl ? (
@@ -385,13 +417,19 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
             <CardHeader>
               <CardTitle>Invite link</CardTitle>
               <CardDescription>
-                Share this URL so people can open the join page with your reference code. New players request to
-                join;{" "}
-                {canAdmin ? (
-                  <>you approve or decline in the Manage tab.</>
-                ) : (
-                  <>an organiser approves join requests.</>
-                )}
+                <span className="block sm:hidden">
+                  Share link; new players request to join
+                  {canAdmin ? " — approve in Manage." : "."}
+                </span>
+                <span className="hidden sm:block">
+                  Share this URL so people can open the join page with your reference code. New players request
+                  to join;{" "}
+                  {canAdmin ? (
+                    <>you approve or decline in the Manage tab.</>
+                  ) : (
+                    <>an organiser approves join requests.</>
+                  )}
+                </span>
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -675,7 +713,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
               <ul
                 className={cn(
                   "grid gap-2 sm:grid-cols-2",
-                  !paginateRoster && "max-h-[min(60vh,36rem)] overflow-y-auto",
+                  !paginateRoster && "max-h-[min(60dvh,36rem)] overflow-y-auto",
                 )}
               >
                 {rosterDisplayPage.map((p) => {
@@ -874,7 +912,7 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
                 <code className="rounded bg-muted px-1 py-0.5 text-xs">HOSTED_SETUP.md</code>).
               </p>
             ) : sessions?.length ? (
-              <div className="max-h-[min(70vh,40rem)] overflow-y-auto pr-1">
+              <div className="max-h-[min(70dvh,40rem)] overflow-y-auto pr-1">
                 <LeagueSessionsList
                   leagueId={leagueId}
                   sessions={sessions}
