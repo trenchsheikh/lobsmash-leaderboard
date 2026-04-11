@@ -90,8 +90,6 @@ export type LeaguePageTabsProps = {
   leagueId: string;
   leagueName: string;
   leagueFormatLabel: string;
-  memberCount: number;
-  viewerRoleLabel: string;
   leagueFormat: LeagueFormat;
   currentUserId: string;
   leagueResultsMode: SessionInputMode;
@@ -154,8 +152,6 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
     leagueId,
     leagueName,
     leagueFormatLabel,
-    memberCount,
-    viewerRoleLabel,
     leagueFormat,
     currentUserId,
     leagueResultsMode,
@@ -296,20 +292,10 @@ export function LeaguePageTabs(props: LeaguePageTabsProps) {
         leagueName,
         formatLabel: leagueFormatLabel,
         refCode,
-        roleLabel: viewerRoleLabel,
-        memberCount,
         rosterLines,
       }),
     };
-  }, [
-    leagueName,
-    leagueFormatLabel,
-    refCode,
-    viewerRoleLabel,
-    memberCount,
-    rosterDisplay,
-    rosterSkillByPlayerId,
-  ]);
+  }, [leagueName, leagueFormatLabel, refCode, rosterDisplay, rosterSkillByPlayerId]);
 
   const openPlayerProfile = useCallback((playerId: string, isGuest?: boolean) => {
     if (isGuest) {

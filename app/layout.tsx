@@ -19,7 +19,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "LobSmash",
   description: "League sessions, games, and leaderboards",
   icons: {
@@ -45,6 +49,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
+  themeColor: "transparent",
 };
 
 export default function RootLayout({

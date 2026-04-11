@@ -173,39 +173,18 @@ export default async function DashboardPage() {
       })
       .filter((r): r is PendingRow => r != null) ?? [];
 
-  const leagueIdsForShare = [
-    ...new Set([...memberRows.map((m) => m.leagueId), ...pendingRows.map((p) => p.leagueId)]),
-  ];
-  const memberCountByLeague = new Map<string, number>();
-  if (leagueIdsForShare.length > 0) {
-    const { data: lmShareRows } = await supabase
-      .from("league_members")
-      .select("league_id")
-      .in("league_id", leagueIdsForShare);
-    for (const r of lmShareRows ?? []) {
-      const lid = String(r.league_id).toLowerCase();
-      memberCountByLeague.set(lid, (memberCountByLeague.get(lid) ?? 0) + 1);
-    }
-  }
-
   function leagueInvitePayload(
-    leagueId: string,
     leagueName: string,
     format: string,
     code: string,
-    roleLabel: string | undefined,
     context: "member_share" | "pending_share",
   ) {
-    const lid = leagueId.toLowerCase();
-    const n = memberCountByLeague.get(lid) ?? 0;
     return {
       shareTitle: shareTitleForLeagueInvite(leagueName),
       shareText: buildLeagueInviteShareBody({
         leagueName,
         formatLabel: formatDisplayName(format),
         refCode: code,
-        roleLabel,
-        memberCount: n,
         context,
       }),
     };
@@ -213,12 +192,12 @@ export default async function DashboardPage() {
 
   const memberRowsWithShare: MemberRow[] = memberRows.map((m) => ({
     ...m,
-    ...leagueInvitePayload(m.leagueId, m.name, m.format, m.code, m.role, "member_share"),
+    ...leagueInvitePayload(m.name, m.format, m.code, "member_share"),
   }));
 
   const pendingRowsWithShare: PendingRow[] = pendingRows.map((p) => ({
     ...p,
-    ...leagueInvitePayload(p.leagueId, p.name, p.format, p.code, undefined, "pending_share"),
+    ...leagueInvitePayload(p.name, p.format, p.code, "pending_share"),
   }));
 
   // RLS returns sessions you can see (creator, roster, or join request). Classify host vs participant vs pending join.

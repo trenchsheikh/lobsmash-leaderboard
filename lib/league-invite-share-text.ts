@@ -18,9 +18,6 @@ export function buildLeagueInviteShareBody(input: {
   leagueName: string;
   formatLabel: string;
   refCode: string;
-  /** e.g. owner, admin, member — shown when present */
-  roleLabel?: string;
-  memberCount?: number;
   /** Roster players with optional global rating line */
   rosterLines?: LeagueInviteRosterLine[];
   /** Dashboard: pending join row vs normal member */
@@ -37,16 +34,6 @@ export function buildLeagueInviteShareBody(input: {
 
   if (input.context === "pending_share") {
     lines.push("⏳ You have a pending join request for this league.");
-    lines.push("");
-  }
-
-  if (input.roleLabel?.trim()) {
-    lines.push(`👔 Your role: ${input.roleLabel.trim()}`);
-    lines.push("");
-  }
-
-  if (typeof input.memberCount === "number" && input.memberCount >= 0) {
-    lines.push(`👥 ${input.memberCount} member${input.memberCount === 1 ? "" : "s"} with access`);
     lines.push("");
   }
 
