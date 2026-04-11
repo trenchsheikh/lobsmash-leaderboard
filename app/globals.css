@@ -184,7 +184,12 @@
     background-color: var(--background);
     background-image: var(--shell-gradient);
     background-repeat: no-repeat;
-    background-size: cover;
+    /**
+     * Stretch the gradient with the document box. `cover` scales like a bitmap to
+     * the shortest axis and can leave bands or an inconsistent paint on long pages;
+     * percentages tie each layer to the full width and height of html/body/.app-root.
+     */
+    background-size: 100% 100%;
     background-position: center top;
   }
 
