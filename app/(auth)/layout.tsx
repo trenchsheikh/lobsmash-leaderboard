@@ -20,7 +20,7 @@ export default function AuthLayout({
 }) {
   return (
     <div className="flex min-h-full flex-1 flex-col bg-background lg:min-h-0 lg:flex-row">
-      <aside className="relative order-1 min-h-[38vh] w-full flex-1 lg:min-h-full lg:w-1/2 lg:max-w-[50vw]">
+      <aside className="relative order-1 flex min-h-[38vh] w-full flex-1 flex-col lg:min-h-full lg:w-1/2 lg:max-w-[50vw]">
         <div className="absolute inset-0">
           <Image
             src="/signin-page.png"
@@ -42,8 +42,8 @@ export default function AuthLayout({
           <FilmGrainOverlay />
         </div>
 
-        <div className="pointer-events-none relative z-10 flex min-h-[38vh] flex-col justify-center p-6 pb-8 sm:p-8 sm:pb-10 lg:min-h-full lg:justify-end lg:pb-12">
-          <div className="pointer-events-auto flex max-w-lg flex-row items-center gap-3 sm:gap-4">
+        <div className="pointer-events-none relative z-10 mt-auto w-full p-6 pb-8 sm:p-8 sm:pb-10 lg:pb-12">
+          <div className="pointer-events-auto flex max-w-lg flex-col gap-3">
             <Image
               src="/lobsmash-logo-removebg-preview.png"
               alt="LobSmash"
@@ -51,9 +51,8 @@ export default function AuthLayout({
               height={500}
               className="h-10 w-auto max-w-[min(140px,38vw)] shrink-0 object-contain object-left brightness-0 invert drop-shadow-md sm:h-11 sm:max-w-[160px]"
             />
-            <p className="min-w-0 flex-1 text-pretty text-sm font-medium leading-snug text-white drop-shadow-md sm:text-base">
-              One place for the leagues you run, the sessions you play, and the standings everyone
-              can trust.
+            <p className="max-w-[20rem] text-pretty text-base font-semibold leading-tight tracking-tight text-white drop-shadow-md sm:max-w-none sm:text-lg">
+              Performance analytics engineered for competitive padel.
             </p>
           </div>
         </div>

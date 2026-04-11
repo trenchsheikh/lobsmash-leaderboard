@@ -62,8 +62,8 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
   }, [pathname]);
 
   return (
-    <header className="relative z-40 border-0 bg-transparent px-3 pt-3 sm:px-4 sm:pt-4">
-      <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-2 rounded-2xl border border-border bg-card/95 px-3 shadow-md backdrop-blur-xl ring-1 ring-black/[0.04] sm:h-14 sm:gap-4 sm:px-4 dark:border-white/12 dark:bg-white/10 dark:ring-white/10">
+    <header className="relative z-40 border-0 bg-transparent px-0 pt-[env(safe-area-inset-top,0px)] sm:px-4 sm:pt-4">
+      <div className="mx-auto flex h-12 w-full max-w-5xl items-center justify-between gap-2 rounded-t-none rounded-b-xl border-b border-border bg-card/95 px-3 shadow-md backdrop-blur-xl ring-1 ring-black/[0.04] sm:h-14 sm:gap-4 sm:rounded-2xl sm:border sm:px-4 dark:border-white/12 dark:bg-white/10 dark:ring-white/10">
         <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-10">
           <Button
             type="button"
