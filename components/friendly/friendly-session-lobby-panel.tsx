@@ -8,7 +8,7 @@ import { swapFriendlyRosterSlots } from "@/app/actions/friendly-sessions";
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { CopyTextButton } from "@/components/copy-text-button";
+import { InviteLinkShareButton } from "@/components/invite-link-share-button";
 import {
   FriendlySessionCard,
   type FriendlySlotDisplay,
@@ -119,7 +119,7 @@ export function FriendlySessionLobbyPanel({
             <code className="min-w-0 flex-1 break-all rounded-lg border border-border/80 bg-background px-2 py-1.5 text-xs">
               {inviteUrl}
             </code>
-            <CopyTextButton text={inviteUrl} label="Copy" />
+            <InviteLinkShareButton url={inviteUrl} label="Share" />
           </div>
         </div>
       ) : null}

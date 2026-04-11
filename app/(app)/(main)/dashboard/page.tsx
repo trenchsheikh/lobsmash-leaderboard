@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 import { JoinLeagueForm } from "@/components/join-league-form";
 import { PasteInviteLinkForm } from "@/components/paste-invite-link-form";
 import { CancelOpenSessionButton } from "@/components/cancel-open-session-button";
-import { CopyTextButton } from "@/components/copy-text-button";
+import { InviteLinkShareButton } from "@/components/invite-link-share-button";
 import { formatDisplayName } from "@/lib/league-format";
 
 const glassCard =
@@ -474,9 +474,9 @@ export default async function DashboardPage() {
                           </span>
                           <div className="flex flex-wrap justify-end gap-2">
                             {row.openRole === "host" ? (
-                              <CopyTextButton
-                                text={`${origin}/friendly/invite/${row.inviteToken}`}
-                                label="Copy invite"
+                              <InviteLinkShareButton
+                                url={`${origin}/friendly/invite/${row.inviteToken}`}
+                                label="Share invite"
                                 size="sm"
                                 variant="outline"
                               />
@@ -633,9 +633,9 @@ export default async function DashboardPage() {
                           <TableCell className="text-right">
                             <div className="flex flex-wrap justify-end gap-2">
                               {row.openRole === "host" ? (
-                                <CopyTextButton
-                                  text={`${origin}/friendly/invite/${row.inviteToken}`}
-                                  label="Copy invite"
+                                <InviteLinkShareButton
+                                  url={`${origin}/friendly/invite/${row.inviteToken}`}
+                                  label="Share invite"
                                   size="sm"
                                   variant="outline"
                                 />
