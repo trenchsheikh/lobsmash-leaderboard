@@ -49,10 +49,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f7fb" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a1f38" },
-  ],
+  /** Lets the page show through browser chrome instead of a flat tint over the shell. */
+  themeColor: "transparent",
 };
 
 export default function RootLayout({
