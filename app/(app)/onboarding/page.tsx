@@ -29,12 +29,10 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
   };
 
   return (
-    <div className="flex min-h-[100dvh] min-w-0 flex-1 flex-col">
-      <OnboardingFlow
-        variant="onboarding"
-        defaults={defaults}
-        joinRedirectUrl={joinRedirectUrl}
-      />
-    </div>
+    <OnboardingFlow
+      variant="onboarding"
+      defaults={defaults}
+      joinRedirectUrl={joinRedirectUrl}
+    />
   );
 }

@@ -475,8 +475,8 @@ export function OnboardingFlow({
     <div
       className={cn(
         onboardingBodyFont.className,
-        "flex min-h-[100dvh] w-full min-w-0 flex-col bg-white lg:min-h-0 lg:flex-row",
-        "mt-[calc(env(safe-area-inset-top)*-1)] mb-[calc(env(safe-area-inset-bottom)*-1)]",
+        "fixed inset-0 z-0 flex w-full min-w-0 flex-col overflow-hidden bg-[#00235B]",
+        "lg:static lg:z-auto lg:min-h-0 lg:flex-row lg:overflow-visible",
       )}
     >
       {variant === "onboarding" ? (
@@ -744,11 +744,16 @@ export function OnboardingFlow({
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           autoComplete="username"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          inputMode="text"
+                          enterKeyHint="next"
                           placeholder="padel_ninja"
                           maxLength={24}
                           aria-invalid={availability.status === "taken" || availability.status === "invalid"}
                           className={cn(
-                            "h-[52px] rounded-[10px] border-[1.5px] pr-14 text-[15px] lowercase text-[#0F1E3F] placeholder:text-[#aab1bf] transition-colors duration-200",
+                            "h-[52px] rounded-[10px] border-[1.5px] pr-14 text-[16px] lowercase text-[#0F1E3F] placeholder:text-[#aab1bf] transition-colors duration-200 sm:text-[15px]",
                             availability.status === "taken"
                               ? "border-[#e11d48] bg-[#fef2f4] focus-visible:border-[#e11d48] focus-visible:ring-[#e11d48]/20"
                               : usernameOk
@@ -892,8 +897,10 @@ export function OnboardingFlow({
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                           autoComplete="given-name"
+                          autoCapitalize="words"
+                          enterKeyHint="next"
                           placeholder="Alex"
-                          className="h-[52px] rounded-[10px] border-[1.5px] border-[#E2E8F0] text-[15px] text-[#0F1E3F] placeholder:text-[#aab1bf] transition-colors duration-200 focus-visible:border-[#00235B] focus-visible:ring-[#00235B]/15"
+                          className="h-[52px] rounded-[10px] border-[1.5px] border-[#E2E8F0] text-[16px] text-[#0F1E3F] placeholder:text-[#aab1bf] transition-colors duration-200 focus-visible:border-[#00235B] focus-visible:ring-[#00235B]/15 sm:text-[15px]"
                         />
                       </div>
                       <div className="space-y-2">
@@ -908,8 +915,10 @@ export function OnboardingFlow({
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           autoComplete="family-name"
+                          autoCapitalize="words"
+                          enterKeyHint="next"
                           placeholder="Smith"
-                          className="h-[52px] rounded-[10px] border-[1.5px] border-[#E2E8F0] text-[15px] text-[#0F1E3F] placeholder:text-[#aab1bf] transition-colors duration-200 focus-visible:border-[#00235B] focus-visible:ring-[#00235B]/15"
+                          className="h-[52px] rounded-[10px] border-[1.5px] border-[#E2E8F0] text-[16px] text-[#0F1E3F] placeholder:text-[#aab1bf] transition-colors duration-200 focus-visible:border-[#00235B] focus-visible:ring-[#00235B]/15 sm:text-[15px]"
                         />
                       </div>
                     </div>
@@ -926,8 +935,10 @@ export function OnboardingFlow({
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
                         autoComplete="nickname"
+                        autoCapitalize="words"
+                        enterKeyHint="done"
                         placeholder="How it appears for others"
-                        className="h-[52px] rounded-[10px] border-[1.5px] border-[#E2E8F0] bg-[#f7f9fc] text-[15px] text-[#0F1E3F] placeholder:text-[#aab1bf] transition-colors duration-200 focus-visible:border-[#00235B] focus-visible:ring-[#00235B]/15"
+                        className="h-[52px] rounded-[10px] border-[1.5px] border-[#E2E8F0] bg-[#f7f9fc] text-[16px] text-[#0F1E3F] placeholder:text-[#aab1bf] transition-colors duration-200 focus-visible:border-[#00235B] focus-visible:ring-[#00235B]/15 sm:text-[15px]"
                       />
                     </div>
 
