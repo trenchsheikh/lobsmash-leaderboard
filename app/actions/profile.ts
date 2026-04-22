@@ -22,14 +22,19 @@ export async function updateProfile(formData: FormData) {
   const uErr = validateUsernameFormat(username);
   if (uErr) return { error: uErr };
 
-  const { data: taken } = await supabase
-    .from("users")
-    .select("id")
-    .eq("username", username)
-    .neq("id", user.id)
-    .maybeSingle();
-
-  if (taken) return { error: "That username is already taken." };
+  const { data: availability, error: availErr } = await supabase.rpc(
+    "check_username_availability",
+    { p_username: username },
+  );
+  if (availErr) {
+    return { error: "Could not verify that username. Try again." };
+  }
+  if (availability === "taken") {
+    return { error: "That username is already taken." };
+  }
+  if (availability === "empty") {
+    return { error: "Pick a valid username." };
+  }
 
   const { error: userErr } = await supabase
     .from("users")

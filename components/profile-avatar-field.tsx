@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Trash2 } from "lucide-react";
+import { Camera, Trash2, UserPlus } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { removeAvatar, uploadAvatar } from "@/app/actions/avatar";
@@ -18,7 +18,7 @@ type Props = {
   /** When false, hide remove (e.g. onboarding before first save). */
   allowRemove?: boolean;
   /** Larger preview and centered layout for onboarding. */
-  variant?: "default" | "onboarding";
+  variant?: "default" | "onboarding" | "onboarding-compact";
 };
 
 export function ProfileAvatarField({
@@ -83,6 +83,93 @@ export function ProfileAvatarField({
   }
 
   const isOnboarding = variant === "onboarding";
+  const isCompact = variant === "onboarding-compact";
+
+  if (isCompact) {
+    return (
+      <div className="min-w-0 rounded-[12px] border border-[#e4e9f2] bg-[#f3f6fc] p-3 sm:p-4">
+        <AvatarCropDialog
+          open={cropObjectUrl !== null}
+          imageSrc={cropObjectUrl}
+          onOpenChange={(open) => {
+            if (!open) clearCropObjectUrl();
+          }}
+          onCropped={onCroppedFile}
+        />
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="sr-only"
+          aria-label="Upload profile photo"
+          onChange={onFile}
+        />
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="shrink-0">
+            {avatarUrl ? (
+              <UserAvatarDisplay
+                name={name}
+                username={username}
+                avatarUrl={avatarUrl}
+                size="lg"
+              />
+            ) : (
+              <div
+                className="grid size-[52px] place-items-center rounded-full bg-white ring-1 ring-[#e4e9f2]"
+                aria-hidden
+              >
+                <UserPlus className="size-5 text-[#6f7d91]" strokeWidth={1.75} />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-1.5">
+              <span className="text-[14px] font-semibold text-[#0F1E3F]">
+                Profile photo
+              </span>
+              <span className="text-[13px] font-normal text-[#8491a4]">
+                (optional)
+              </span>
+            </div>
+            <p className="mt-0.5 text-[13px] leading-[1.4] text-[#6f7d91]">
+              Helps teammates recognise you on court. JPG or PNG, max 5MB.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => inputRef.current?.click()}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1 text-[12.5px] font-medium text-[#00235B] transition-colors duration-200",
+                  "hover:border-[#86E10B] hover:text-[#00235B]",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86E10B]/40",
+                  "disabled:opacity-60",
+                )}
+              >
+                {pending ? (
+                  <Spinner className="size-3.5" />
+                ) : (
+                  <Camera className="size-3.5" aria-hidden />
+                )}
+                {avatarUrl ? "Change photo" : "Upload photo"}
+              </button>
+              {allowRemove && avatarUrl ? (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={onRemove}
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12.5px] font-medium text-[#7a8598] transition-colors duration-200 hover:text-[#c0123a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0123a]/25"
+                >
+                  <Trash2 className="size-3.5" aria-hidden />
+                  Remove
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

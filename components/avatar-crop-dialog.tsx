@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type AvatarCropDialogProps = {
@@ -67,65 +68,88 @@ export function AvatarCropDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={!working}
-        className="max-w-[min(100vw-1rem,26rem)] gap-0 overflow-hidden p-0 sm:max-w-md"
+        className={cn(
+          "!pl-0 !pr-0 !pt-0 !pb-0",
+          "flex max-h-[calc(100dvh-1rem)] w-[min(100vw-1rem,28rem)] max-w-none flex-col gap-0 overflow-hidden",
+          "sm:w-auto sm:max-w-md",
+        )}
       >
-        <DialogHeader className="space-y-1 px-4 pt-4 pb-2">
-          <DialogTitle>Position your photo</DialogTitle>
-          <DialogDescription>
-            Drag to move, use the slider to zoom. The circle is how others will see your
-            avatar.
+        <DialogHeader className="shrink-0 space-y-1 border-b border-[#eef1f6] px-5 pb-3 pt-5 text-left">
+          <DialogTitle className="text-[17px] font-semibold text-[#00235B]">
+            Position your photo
+          </DialogTitle>
+          <DialogDescription className="text-[13px] leading-[1.4] text-[#6f7d91]">
+            Drag to reframe and use the slider to zoom. The circle shows how teammates
+            will see your avatar.
           </DialogDescription>
         </DialogHeader>
 
-        {imageSrc ? (
-          <div className="relative mx-auto aspect-square w-full max-w-[min(100vw-2rem,20rem)] bg-muted">
-            <Cropper
-              image={imageSrc}
-              crop={crop}
-              zoom={zoom}
-              aspect={1}
-              cropShape="round"
-              showGrid={false}
-              minZoom={1}
-              maxZoom={3}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onCropComplete={onCropComplete}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {imageSrc ? (
+            <div className="relative mx-auto aspect-square w-full max-w-[min(100vw-2rem,18rem)] bg-[#0F1E3F]">
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                minZoom={1}
+                maxZoom={3}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+          ) : null}
+
+          <div className="space-y-2 px-5 pb-4 pt-3">
+            <div className="flex items-center justify-between">
+              <Label
+                htmlFor="avatar-crop-zoom"
+                className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#00235B]"
+              >
+                Zoom
+              </Label>
+              <span className="text-[12px] tabular-nums text-[#6f7d91]">
+                {zoom.toFixed(1)}x
+              </span>
+            </div>
+            <input
+              id="avatar-crop-zoom"
+              type="range"
+              min={1}
+              max={3}
+              step={0.01}
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              disabled={working}
+              className="h-2 w-full cursor-pointer accent-[#86E10B] disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
-        ) : null}
-
-        <div className="space-y-2 px-4 pb-2 pt-3">
-          <Label htmlFor="avatar-crop-zoom" className="text-xs text-muted-foreground">
-            Zoom
-          </Label>
-          <input
-            id="avatar-crop-zoom"
-            type="range"
-            min={1}
-            max={3}
-            step={0.01}
-            value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            disabled={working}
-            className="h-2 w-full cursor-pointer accent-primary"
-          />
         </div>
 
-        <DialogFooter className="gap-2 border-t bg-muted/40 px-4 py-3 sm:justify-between">
+        <DialogFooter
+          className={cn(
+            "!mx-0 !mb-0 shrink-0",
+            "flex flex-row flex-nowrap items-center gap-2 rounded-none border-t border-[#eef1f6] bg-[#f7f9fc] p-3 sm:justify-between",
+            "pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]",
+          )}
+        >
           <Button
             type="button"
             variant="outline"
             disabled={working}
             onClick={() => onOpenChange(false)}
+            className="h-10 min-w-0 flex-1 rounded-full border-[#E2E8F0] font-medium text-[#00235B] hover:bg-white sm:flex-none sm:min-w-[96px]"
           >
             Cancel
           </Button>
           <Button
             type="button"
-            className="gap-2"
             disabled={!pixels || working}
             onClick={() => void handleSave()}
+            className="h-10 min-w-0 flex-1 gap-2 rounded-full bg-[#86E10B] font-semibold text-[#00235B] shadow-sm hover:bg-[#95ea1d] disabled:bg-[#d3dde6] disabled:text-[#6f7d91] sm:flex-none sm:min-w-[120px]"
           >
             {working ? (
               <>

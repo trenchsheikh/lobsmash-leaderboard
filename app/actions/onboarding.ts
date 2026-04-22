@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth/profile";
 import {
   inviteUuidFromJoinPath,
   isSafeJoinRedirectPath,
+  isSafePostAuthRedirectPath,
   leagueCodeFromJoinPath,
 } from "@/lib/safe-redirect-url";
 import { normalizeUsername, validateUsernameFormat } from "@/lib/username";
@@ -27,14 +28,19 @@ export async function completeOnboarding(formData: FormData) {
   const uErr = validateUsernameFormat(username);
   if (uErr) return { error: uErr };
 
-  const { data: taken } = await supabase
-    .from("users")
-    .select("id")
-    .eq("username", username)
-    .neq("id", user.id)
-    .maybeSingle();
-
-  if (taken) return { error: "That username is already taken." };
+  const { data: availability, error: availErr } = await supabase.rpc(
+    "check_username_availability",
+    { p_username: username },
+  );
+  if (availErr) {
+    return { error: "Could not verify that username. Try again." };
+  }
+  if (availability === "taken") {
+    return { error: "That username is already taken." };
+  }
+  if (availability === "invalid" || availability === "empty") {
+    return { error: "Pick a valid username." };
+  }
 
   const { error: userErr } = await supabase
     .from("users")
@@ -70,17 +76,19 @@ export async function completeOnboarding(formData: FormData) {
 
   const redirectRaw = String(formData.get("redirect_url") ?? "").trim();
   let redirectTo: string = "/dashboard";
-  if (isSafeJoinRedirectPath(redirectRaw)) {
+  if (isSafePostAuthRedirectPath(redirectRaw)) {
     redirectTo = redirectRaw;
-    const code = leagueCodeFromJoinPath(redirectRaw);
-    if (code) {
-      await supabase.rpc("join_league_by_code", { p_code: code });
-    } else {
-      const uuid = inviteUuidFromJoinPath(redirectRaw);
-      if (uuid) {
-        await supabase.rpc("request_join_league_by_invite_token", {
-          p_invite_token: uuid,
-        });
+    if (isSafeJoinRedirectPath(redirectRaw)) {
+      const code = leagueCodeFromJoinPath(redirectRaw);
+      if (code) {
+        await supabase.rpc("join_league_by_code", { p_code: code });
+      } else {
+        const uuid = inviteUuidFromJoinPath(redirectRaw);
+        if (uuid) {
+          await supabase.rpc("request_join_league_by_invite_token", {
+            p_invite_token: uuid,
+          });
+        }
       }
     }
     revalidatePath(redirectRaw);

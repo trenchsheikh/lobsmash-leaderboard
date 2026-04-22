@@ -1,66 +1,79 @@
 import Image from "next/image";
+import { Inter, Manrope } from "next/font/google";
 
-/** Very subtle noise — barely visible, avoids banding without a gritty look. */
-function FilmGrainOverlay() {
+const fontAuthDisplay = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope-auth",
+  weight: ["500", "600", "700", "800"],
+});
+
+const fontAuthSans = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter-auth",
+});
+
+function StatBlock({ value, label }: { value: string; label: string }) {
   return (
-    <div
-      className="pointer-events-none absolute inset-0 opacity-[0.035] mix-blend-soft-light"
-      aria-hidden
-      style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-      }}
-    />
+    <div className="flex flex-col gap-0.5">
+      <span className="text-lg font-bold tabular-nums text-[#86E10B] sm:text-xl">{value}</span>
+      <span className="text-xs font-medium text-white/55 sm:text-sm">{label}</span>
+    </div>
   );
 }
 
-export default function AuthLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-background lg:min-h-0 lg:flex-row">
-      <aside className="relative order-1 flex min-h-[38vh] w-full flex-1 flex-col lg:min-h-full lg:w-1/2 lg:max-w-[50vw]">
-        <div className="absolute inset-0">
-          <Image
-            src="/signin-page.png"
-            alt="Padel on court — LobSmash"
-            fill
-            priority
-            quality={92}
-            className="object-cover object-[center_28%] contrast-[1.02] saturate-[1.03]"
-            sizes="(max-width: 1024px) 100vw, 50vw"
-          />
+    <div
+      className={`${fontAuthSans.variable} ${fontAuthDisplay.variable} flex min-h-[100dvh] flex-1 flex-col bg-white font-[family-name:var(--font-inter-auth),ui-sans-serif,system-ui,sans-serif] antialiased`}
+    >
+      <div className="flex min-h-[100dvh] flex-1 flex-col lg:min-h-0 lg:flex-row">
+        <aside className="relative order-1 flex w-full shrink-0 flex-col overflow-hidden bg-[#00235B] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-8 sm:pb-8 sm:pt-7 lg:order-none lg:w-[42%] lg:max-w-[min(32rem,42vw)] lg:min-h-[100dvh] lg:justify-between lg:px-10 lg:pb-12 lg:pt-10">
           <div
-            className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/20"
+            className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[#86E10B]/[0.07] blur-3xl max-lg:hidden"
             aria-hidden
           />
           <div
-            className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/25"
+            className="pointer-events-none absolute -bottom-16 -left-20 size-64 rounded-full bg-black/25 blur-2xl max-lg:hidden"
             aria-hidden
           />
-          <FilmGrainOverlay />
-        </div>
 
-        <div className="pointer-events-none relative z-10 mt-auto w-full p-6 pb-8 sm:p-8 sm:pb-10 lg:pb-12">
-          <div className="pointer-events-auto flex max-w-lg flex-col gap-3">
+          <header className="relative z-10 flex items-center gap-2.5 sm:gap-3">
             <Image
               src="/lobsmash-logo-removebg-preview.png"
               alt="LobSmash"
-              width={500}
-              height={500}
-              className="h-10 w-auto max-w-[min(140px,38vw)] shrink-0 object-contain object-left brightness-0 invert drop-shadow-md sm:h-11 sm:max-w-[160px]"
+              width={160}
+              height={160}
+              className="h-7 w-auto shrink-0 object-contain object-left brightness-0 invert sm:h-10"
             />
-            <p className="max-w-[20rem] text-pretty text-base font-semibold leading-tight tracking-tight text-white drop-shadow-md sm:max-w-none sm:text-lg">
-              Performance analytics engineered for competitive padel.
+            <span
+              className={`${fontAuthDisplay.className} text-base font-bold tracking-tight text-white sm:text-xl`}
+            >
+              LobSmash
+            </span>
+          </header>
+
+          <div className="relative z-10 mt-6 hidden flex-col gap-3 sm:mt-8 sm:flex lg:mt-0 lg:flex-1 lg:justify-center lg:gap-4">
+            <h1
+              className={`${fontAuthDisplay.className} max-w-[16rem] text-pretty text-2xl font-bold leading-tight tracking-tight text-white sm:max-w-xl sm:text-3xl lg:text-4xl`}
+            >
+              Your game. Elevated.
+            </h1>
+            <p className="max-w-md text-pretty text-sm leading-relaxed text-white/65 sm:text-base">
+              Performance analytics, leagues & matchmaking for serious padel players.
             </p>
           </div>
-        </div>
-      </aside>
 
-      <main className="relative order-2 flex min-h-0 flex-1 flex-col justify-center overflow-hidden bg-background px-4 py-8 sm:px-6 sm:py-10 lg:w-1/2 lg:px-10 lg:py-12">
-        <div className="relative z-10 mx-auto w-full max-w-md">{children}</div>
-      </main>
+          <div className="relative z-10 mt-8 hidden grid-cols-3 gap-3 border-t border-white/10 pt-6 sm:grid sm:gap-4 sm:pt-8 lg:mt-10 lg:pt-10">
+            <StatBlock value="2.4K+" label="Players" />
+            <StatBlock value="140+" label="Leagues" />
+            <StatBlock value="98%" label="Match rate" />
+          </div>
+        </aside>
+
+        <main className="relative order-2 flex flex-1 flex-col justify-start overflow-hidden bg-white px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 sm:min-h-[52vh] sm:justify-center sm:px-6 sm:py-10 lg:min-h-[100dvh] lg:flex-1 lg:justify-start lg:pl-24 lg:pr-12 lg:pt-28 lg:pb-16 xl:pl-32">
+          <div className="relative z-10 mx-auto w-full max-w-md lg:mx-0">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

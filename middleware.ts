@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { isSafePostAuthRedirectPath } from "@/lib/safe-redirect-url";
 
 const isPublicRoute = createRouteMatcher([
   "/login(.*)",
@@ -25,10 +26,10 @@ export default clerkMiddleware(async (auth, request) => {
       request.nextUrl.pathname.startsWith("/sign-up"))
   ) {
     const redirectUrl = request.nextUrl.searchParams.get("redirect_url");
-    if (redirectUrl?.startsWith("/join/") || redirectUrl?.startsWith("/friendly/invite/")) {
+    if (redirectUrl && isSafePostAuthRedirectPath(redirectUrl)) {
       try {
         const u = new URL(redirectUrl, request.url);
-        if (u.pathname.startsWith("/join/") || u.pathname.startsWith("/friendly/invite/")) {
+        if (isSafePostAuthRedirectPath(u.pathname)) {
           return NextResponse.redirect(u);
         }
       } catch {
