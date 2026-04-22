@@ -76,8 +76,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
         </aside>
 
-        <main className="relative order-2 flex flex-1 flex-col justify-start overflow-y-auto bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-6 sm:justify-center sm:px-6 sm:py-10 lg:min-h-[100dvh] lg:flex-1 lg:justify-start lg:overflow-visible lg:pl-24 lg:pr-12 lg:pt-28 lg:pb-[calc(env(safe-area-inset-bottom)+4rem)] xl:pl-32">
-          <div className="relative z-10 mx-auto w-full max-w-md lg:mx-0">{children}</div>
+        <main className="relative order-2 flex flex-1 flex-col justify-start overflow-y-auto bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-6 sm:justify-center sm:px-6 sm:py-10 lg:min-h-[100dvh] lg:flex-1 lg:justify-center lg:overflow-visible lg:px-12 lg:py-12 xl:px-16">
+          <div className="relative z-10 mx-auto w-full max-w-md">{children}</div>
         </main>
       </div>
     </div>
