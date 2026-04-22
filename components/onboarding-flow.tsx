@@ -1153,7 +1153,7 @@ export function OnboardingFlow({
             </div>
           </div>
         </div>
-        <div className="sticky bottom-0 z-20 mt-auto bg-transparent px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+2.75rem)] sm:border-t sm:border-[#e2e8f0] sm:bg-white sm:px-5 sm:pb-4 lg:px-6 lg:pb-6">
+        <div className="sticky bottom-0 z-20 mt-auto bg-transparent px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:border-t sm:border-[#e2e8f0] sm:bg-white sm:px-5 sm:pb-4 lg:px-6 lg:pb-6">
           <div className="flex w-full max-w-[1240px] items-center justify-between">
             <div>
               {canGoBack ? (
