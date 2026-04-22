@@ -24,7 +24,7 @@ function StatBlock({ value, label }: { value: string; label: string }) {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className={`${fontAuthSans.variable} ${fontAuthDisplay.variable} fixed inset-0 z-0 flex flex-col overflow-hidden bg-[#00235B] font-[family-name:var(--font-inter-auth),ui-sans-serif,system-ui,sans-serif] antialiased lg:static lg:z-auto lg:min-h-[100dvh] lg:flex-row lg:overflow-visible`}
+      className={`${fontAuthSans.variable} ${fontAuthDisplay.variable} fixed inset-0 z-0 flex flex-col overflow-hidden bg-white font-[family-name:var(--font-inter-auth),ui-sans-serif,system-ui,sans-serif] antialiased lg:static lg:z-auto lg:min-h-[100dvh] lg:flex-row lg:overflow-visible`}
     >
       <div className="flex flex-1 flex-col overflow-hidden lg:min-h-0 lg:flex-row lg:overflow-visible">
         <aside className="relative order-1 flex w-full shrink-0 flex-col overflow-hidden bg-[#00235B] px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-8 sm:pb-8 sm:pt-[calc(env(safe-area-inset-top)+1.75rem)] lg:order-none lg:w-[42%] lg:max-w-[min(32rem,42vw)] lg:min-h-[100dvh] lg:justify-between lg:px-10 lg:pb-[calc(env(safe-area-inset-bottom)+3rem)] lg:pt-[calc(env(safe-area-inset-top)+2.5rem)]">

@@ -475,7 +475,7 @@ export function OnboardingFlow({
     <div
       className={cn(
         onboardingBodyFont.className,
-        "fixed inset-0 z-0 flex w-full min-w-0 flex-col overflow-hidden bg-[#00235B]",
+        "fixed inset-0 z-0 flex w-full min-w-0 flex-col overflow-hidden bg-white",
         "lg:static lg:z-auto lg:min-h-0 lg:flex-row lg:overflow-visible",
       )}
     >
