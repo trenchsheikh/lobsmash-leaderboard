@@ -613,8 +613,8 @@ export function OnboardingFlow({
         </aside>
       ) : null}
 
-      <section className="relative order-2 flex min-w-0 flex-1 flex-col bg-white motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-400">
-        <div className="w-full flex-1 overflow-y-auto px-4 pb-[calc(10.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-5 sm:pb-[calc(8.5rem+env(safe-area-inset-bottom))] sm:pt-6 lg:px-6 lg:pb-28">
+      <section className="relative order-2 flex min-w-0 min-h-0 flex-1 flex-col bg-white motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-400">
+        <div className="w-full min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-5 sm:px-5 sm:pb-8 sm:pt-6 lg:px-6 lg:pb-28">
           <div className="w-full max-w-[1240px]">
             {accountSlot ? (
               <div className="mb-6 border-b border-border/60 pb-4">{accountSlot}</div>
@@ -1153,7 +1153,7 @@ export function OnboardingFlow({
             </div>
           </div>
         </div>
-        <div className="absolute inset-x-0 bottom-0 z-20 bg-transparent px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+3.5rem)] sm:border-t sm:border-[#e2e8f0] sm:bg-white sm:px-5 sm:pb-4 lg:px-6 lg:pb-6">
+        <div className="sticky bottom-0 z-20 mt-auto bg-transparent px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+2.75rem)] sm:border-t sm:border-[#e2e8f0] sm:bg-white sm:px-5 sm:pb-4 lg:px-6 lg:pb-6">
           <div className="flex w-full max-w-[1240px] items-center justify-between">
             <div>
               {canGoBack ? (
