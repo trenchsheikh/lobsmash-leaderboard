@@ -476,10 +476,11 @@ export function OnboardingFlow({
       className={cn(
         onboardingBodyFont.className,
         "flex min-h-[100dvh] w-full min-w-0 flex-col bg-white lg:min-h-0 lg:flex-row",
+        "mt-[calc(env(safe-area-inset-top)*-1)] mb-[calc(env(safe-area-inset-bottom)*-1)]",
       )}
     >
       {variant === "onboarding" ? (
-        <aside className="relative order-1 flex w-full shrink-0 flex-col overflow-hidden bg-[#00235B] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white sm:px-8 sm:pb-8 sm:pt-7 lg:order-none lg:w-[42%] lg:max-w-[min(32rem,42vw)] lg:min-h-[100dvh] lg:px-10 lg:pb-12 lg:pt-10 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-2 motion-safe:duration-500">
+        <aside className="relative order-1 flex w-full shrink-0 flex-col overflow-hidden bg-[#00235B] px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] text-white sm:px-8 sm:pb-8 sm:pt-[calc(env(safe-area-inset-top)+1.75rem)] lg:order-none lg:w-[42%] lg:max-w-[min(32rem,42vw)] lg:min-h-[100dvh] lg:px-10 lg:pb-[calc(env(safe-area-inset-bottom)+3rem)] lg:pt-[calc(env(safe-area-inset-top)+2.5rem)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-2 motion-safe:duration-500">
           <Image
             src="/tennis-ball.png"
             alt=""
@@ -1141,7 +1142,7 @@ export function OnboardingFlow({
             </div>
           </div>
         </div>
-        <div className="absolute inset-x-0 bottom-0 z-20 border-t border-[#e2e8f0] bg-white px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-6">
+        <div className="absolute inset-x-0 bottom-0 z-20 border-t border-[#e2e8f0] bg-white px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-5 lg:px-6">
           <div className="flex w-full max-w-[1240px] items-center justify-between">
             <div>
               {canGoBack ? (

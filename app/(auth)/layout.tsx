@@ -24,10 +24,10 @@ function StatBlock({ value, label }: { value: string; label: string }) {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className={`${fontAuthSans.variable} ${fontAuthDisplay.variable} flex min-h-[100dvh] flex-1 flex-col bg-white font-[family-name:var(--font-inter-auth),ui-sans-serif,system-ui,sans-serif] antialiased`}
+      className={`${fontAuthSans.variable} ${fontAuthDisplay.variable} relative flex min-h-[100dvh] flex-1 flex-col bg-white font-[family-name:var(--font-inter-auth),ui-sans-serif,system-ui,sans-serif] antialiased mt-[calc(env(safe-area-inset-top)*-1)] mb-[calc(env(safe-area-inset-bottom)*-1)]`}
     >
       <div className="flex min-h-[100dvh] flex-1 flex-col lg:min-h-0 lg:flex-row">
-        <aside className="relative order-1 flex w-full shrink-0 flex-col overflow-hidden bg-[#00235B] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-8 sm:pb-8 sm:pt-7 lg:order-none lg:w-[42%] lg:max-w-[min(32rem,42vw)] lg:min-h-[100dvh] lg:justify-between lg:px-10 lg:pb-12 lg:pt-10">
+        <aside className="relative order-1 flex w-full shrink-0 flex-col overflow-hidden bg-[#00235B] px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-8 sm:pb-8 sm:pt-[calc(env(safe-area-inset-top)+1.75rem)] lg:order-none lg:w-[42%] lg:max-w-[min(32rem,42vw)] lg:min-h-[100dvh] lg:justify-between lg:px-10 lg:pb-[calc(env(safe-area-inset-bottom)+3rem)] lg:pt-[calc(env(safe-area-inset-top)+2.5rem)]">
           <div
             className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[#86E10B]/[0.07] blur-3xl max-lg:hidden"
             aria-hidden
@@ -52,6 +52,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             </span>
           </header>
 
+          <p
+            className={`${fontAuthDisplay.className} relative z-10 mt-1.5 text-[12px] font-semibold leading-snug text-white/70 sm:hidden`}
+          >
+            Your game. Elevated.
+          </p>
+
           <div className="relative z-10 mt-6 hidden flex-col gap-3 sm:mt-8 sm:flex lg:mt-0 lg:flex-1 lg:justify-center lg:gap-4">
             <h1
               className={`${fontAuthDisplay.className} max-w-[16rem] text-pretty text-2xl font-bold leading-tight tracking-tight text-white sm:max-w-xl sm:text-3xl lg:text-4xl`}
@@ -70,7 +76,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
         </aside>
 
-        <main className="relative order-2 flex flex-1 flex-col justify-start overflow-hidden bg-white px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 sm:min-h-[52vh] sm:justify-center sm:px-6 sm:py-10 lg:min-h-[100dvh] lg:flex-1 lg:justify-start lg:pl-24 lg:pr-12 lg:pt-28 lg:pb-16 xl:pl-32">
+        <main className="relative order-2 flex flex-1 flex-col justify-start overflow-hidden bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-6 sm:min-h-[52vh] sm:justify-center sm:px-6 sm:py-10 lg:min-h-[100dvh] lg:flex-1 lg:justify-start lg:pl-24 lg:pr-12 lg:pt-28 lg:pb-[calc(env(safe-area-inset-bottom)+4rem)] xl:pl-32">
           <div className="relative z-10 mx-auto w-full max-w-md lg:mx-0">{children}</div>
         </main>
       </div>
