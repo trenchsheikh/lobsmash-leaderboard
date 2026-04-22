@@ -1,5 +1,4 @@
 import { requireOnboarded } from "@/lib/auth/profile";
-import { MainShellBackground } from "@/components/main-shell-background";
 import { MainHeader } from "@/components/main-header";
 import { MainRouteTransition } from "@/components/main-route-transition";
 
@@ -11,8 +10,7 @@ export default async function MainShellLayout({
   const { profile } = await requireOnboarded();
 
   return (
-    <div className="relative flex min-h-full flex-1 flex-col bg-transparent">
-      <MainShellBackground />
+    <div className="relative flex min-h-full flex-1 flex-col bg-white">
       <MainHeader
         user={{
           name: profile?.name?.trim() ?? null,
