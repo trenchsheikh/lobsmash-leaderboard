@@ -77,6 +77,7 @@ export default async function ProfilePage() {
     name,
     username: username ?? "",
     avatar_url: avatarUrl,
+    playstyle: playStyles[0] ?? null,
     preferred_side: player.preferred_side,
     experience_level: player.experience_level,
     strengths: playStyles,
