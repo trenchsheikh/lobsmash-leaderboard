@@ -21,6 +21,7 @@ import { ProfileEditSheet } from "@/components/profile-edit-sheet";
 import { ProfilePlaystyleRadarPanel } from "@/components/profile-playstyle-radar-panel";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
 import { ProfileRatingPanel } from "@/components/profile-rating-panel";
+import { DeleteProfileButton } from "@/components/delete-profile-button";
 import { DEFAULT_SKILL } from "@/lib/rating";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,7 @@ export default async function ProfilePage() {
   const { data: player } = await supabase
     .from("players")
     .select(
-      "id, playstyle, strengths, weaknesses, preferred_side, experience_level",
+      "id, play_styles, profile_attributes, preferred_side, experience_level",
     )
     .eq("user_id", user.id)
     .single();
@@ -68,18 +69,18 @@ export default async function ProfilePage() {
   const name = row.name?.trim() ?? "";
   const username = row.username?.trim() ?? null;
   const avatarUrl = row.avatar_url?.trim() ?? null;
-  const strengths = (player.strengths as string[]) ?? [];
-  const weaknesses = (player.weaknesses as string[]) ?? [];
+  const playStyles = (player.play_styles as string[]) ?? [];
+  const profileAttributes =
+    (player.profile_attributes as Record<string, number> | null) ?? {};
 
   const defaults = {
     name,
     username: username ?? "",
     avatar_url: avatarUrl,
-    playstyle: player.playstyle,
     preferred_side: player.preferred_side,
     experience_level: player.experience_level,
-    strengths,
-    weaknesses,
+    strengths: playStyles,
+    weaknesses: [],
   };
 
   const effectiveSkill =
@@ -97,9 +98,8 @@ export default async function ProfilePage() {
   }));
 
   const radarBaseline = computeRadarFromProfile({
-    playstyle: player.playstyle,
-    strengths,
-    weaknesses,
+    play_styles: playStyles,
+    profile_attributes: profileAttributes,
     experience_level: player.experience_level,
   });
 
@@ -149,11 +149,11 @@ export default async function ProfilePage() {
 
       <ProfilePlaystyleRadarPanel
         baseline={radarBaseline}
-        playstyleLabel={labelForPlaystyle(player.playstyle) || "—"}
+        playstyleLabel={labelForPlaystyle(playStyles[0] ?? null) || "—"}
         sideLabel={labelForSide(player.preferred_side) || "—"}
         experienceLabel={labelForExperience(player.experience_level) || "—"}
-        strengths={strengths}
-        weaknesses={weaknesses}
+        strengths={playStyles}
+        weaknesses={[]}
       />
 
       <Card className="border-border/80 shadow-sm">
@@ -168,6 +168,18 @@ export default async function ProfilePage() {
               {email}
             </dd>
           </dl>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/40 shadow-sm">
+        <CardHeader>
+          <CardTitle className="font-heading text-lg text-destructive">Delete profile</CardTitle>
+          <CardDescription>
+            Permanently remove your profile from this app.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-start">
+          <DeleteProfileButton />
         </CardContent>
       </Card>
     </div>

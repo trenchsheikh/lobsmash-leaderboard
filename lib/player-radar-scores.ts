@@ -23,48 +23,21 @@ export function radarAxisLabels(): typeof AXIS_LABELS {
   return AXIS_LABELS;
 }
 
-/** Strength option values → axis boosts (sum applied then clamped). */
-const STRENGTH_WEIGHTS: Record<string, Partial<Record<keyof RadarAxes, number>>> = {
-  bandeja: { offense: 12, netPlay: 8 },
-  vibora: { offense: 14, wallsLobs: 6 },
-  smash_finish: { offense: 16 },
-  defensive_glass: { defense: 14, wallsLobs: 8 },
-  lob_quality: { wallsLobs: 14, offense: 4 },
-  net_presence: { netPlay: 16 },
-  court_speed: { defense: 8, consistency: 6 },
-  serve_rhythm: { serveReturn: 14 },
-  tactical_patience: { consistency: 14 },
-  back_wall_reading: { wallsLobs: 12, defense: 6 },
-};
-
-const WEAKNESS_WEIGHTS: Record<string, Partial<Record<keyof RadarAxes, number>>> = {
-  back_glass_panic: { wallsLobs: -10, defense: -6 },
-  bandeja_consistency: { offense: -8, netPlay: -4 },
-  smash_defense: { defense: -10, wallsLobs: -4 },
-  corner_traffic: { defense: -8, wallsLobs: -6 },
-  lob_defense: { wallsLobs: -10, defense: -6 },
-  net_duels: { netPlay: -12 },
-  transition_net: { netPlay: -8, consistency: -4 },
-  serve_return: { serveReturn: -12 },
-  side_wall_reads: { wallsLobs: -10 },
-  consistency_rallies: { consistency: -14 },
-};
-
 const PLAYSTYLE_BIAS: Record<string, Partial<Record<keyof RadarAxes, number>>> = {
-  net_presser: { netPlay: 14, offense: 8 },
-  wall_grinder: { wallsLobs: 12, defense: 10, consistency: 6 },
-  lob_tactician: { wallsLobs: 14, consistency: 10 },
-  counter_striker: { defense: 12, offense: 8 },
-  all_court_mixer: { offense: 6, defense: 6, netPlay: 6, wallsLobs: 6 },
-  padel_rookie: {},
+  aggressive_baseliner: { offense: 8 },
+  net_rusher: { netPlay: 10, offense: 4 },
+  defensive_counter: { defense: 10, consistency: 5 },
+  power_hitter: { offense: 12 },
+  consistent_patient: { consistency: 12, defense: 4 },
+  all_court: { offense: 4, defense: 4, netPlay: 4, wallsLobs: 4, serveReturn: 4, consistency: 4 },
 };
 
 /** experience_level values from `EXPERIENCE_OPTIONS` */
 const EXPERIENCE_SCALE: Record<string, number> = {
-  first_steps: 42,
-  club_social: 52,
-  league_club: 62,
-  tournament_hunter: 72,
+  lt_1y: 40,
+  y1_3: 52,
+  y3_5: 62,
+  gt_5y: 72,
   /** legacy keys */
   beginner: 42,
   improver: 52,
@@ -82,9 +55,8 @@ function clamp(n: number, lo = 8, hi = 92): number {
  * Not a performance stat — visualization of how they describe their game.
  */
 export function computeRadarFromProfile(input: {
-  playstyle: string | null;
-  strengths: string[];
-  weaknesses: string[];
+  play_styles: string[];
+  profile_attributes: Record<string, number>;
   experience_level: string | null;
 }): RadarAxes {
   const exp = input.experience_level?.trim();
@@ -101,27 +73,23 @@ export function computeRadarFromProfile(input: {
     consistency: base,
   };
 
-  const ps = input.playstyle?.trim();
-  if (ps && PLAYSTYLE_BIAS[ps]) {
-    for (const [k, v] of Object.entries(PLAYSTYLE_BIAS[ps])) {
-      const key = k as keyof RadarAxes;
-      if (typeof v === "number") axes[key] += v;
-    }
-  }
+  const ratings = input.profile_attributes ?? {};
+  const asRadar = (rating: number | undefined): number => {
+    const r = Number.isFinite(rating) ? Number(rating) : 1;
+    const bounded = Math.max(1, Math.min(8, Math.round(r)));
+    return 8 + Math.round(((bounded - 1) / 7) * 84);
+  };
+  axes.serveReturn = asRadar(ratings.serve_return);
+  axes.netPlay = asRadar(ratings.net_game);
+  axes.offense = asRadar(ratings.power);
+  axes.consistency = asRadar(ratings.consistency);
+  axes.defense = asRadar(ratings.movement);
+  axes.wallsLobs = asRadar(ratings.tactical_iq);
 
-  for (const s of input.strengths ?? []) {
-    const w = STRENGTH_WEIGHTS[s];
-    if (!w) continue;
-    for (const [k, v] of Object.entries(w)) {
-      const key = k as keyof RadarAxes;
-      if (typeof v === "number") axes[key] += v;
-    }
-  }
-
-  for (const w of input.weaknesses ?? []) {
-    const cut = WEAKNESS_WEIGHTS[w];
-    if (!cut) continue;
-    for (const [k, v] of Object.entries(cut)) {
+  for (const style of input.play_styles ?? []) {
+    const bias = PLAYSTYLE_BIAS[style];
+    if (!bias) continue;
+    for (const [k, v] of Object.entries(bias)) {
       const key = k as keyof RadarAxes;
       if (typeof v === "number") axes[key] += v;
     }

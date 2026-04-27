@@ -128,7 +128,7 @@ export const getOnboardingState = cache(async () => {
   const { data: player } = await supabase
     .from("players")
     .select(
-      "id, name, playstyle, strengths, weaknesses, preferred_side, experience_level",
+      "id, name, preferred_side, experience_level, play_styles, profile_attributes, improvement_areas, city_or_postcode, travel_distance_km, usual_play_times",
     )
     .eq("user_id", user.id)
     .maybeSingle();

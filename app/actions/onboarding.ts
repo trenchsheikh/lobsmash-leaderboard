@@ -9,19 +9,48 @@ import {
   leagueCodeFromJoinPath,
 } from "@/lib/safe-redirect-url";
 import { normalizeUsername, validateUsernameFormat } from "@/lib/username";
+import { PROFILE_ATTRIBUTE_OPTIONS } from "@/lib/onboarding-options";
 
 export async function completeOnboarding(formData: FormData) {
   const { supabase, user } = await requireUser();
   const name = String(formData.get("name") ?? "").trim();
   const username = normalizeUsername(String(formData.get("username") ?? ""));
-  const playstyle = String(formData.get("playstyle") ?? "").trim();
   const preferredSide = String(formData.get("preferred_side") ?? "").trim();
   const experienceLevel = String(formData.get("experience_level") ?? "").trim();
+  const playStyles = formData.getAll("strengths").map(String).filter(Boolean);
+  const improvementAreas = formData
+    .getAll("improvement_areas")
+    .map(String)
+    .filter(Boolean)
+    .slice(0, 4);
+  const cityOrPostcode = String(formData.get("city_or_postcode") ?? "").trim();
+  const rawTravel = String(formData.get("travel_distance_km") ?? "10").trim().toLowerCase();
+  const travelDistanceKm =
+    rawTravel === "any"
+      ? null
+      : (() => {
+          const n = Number(rawTravel);
+          return Number.isFinite(n) ? Math.max(1, Math.round(n)) : 10;
+        })();
+  const usualPlayTimes = formData
+    .getAll("usual_play_times")
+    .map(String)
+    .filter(Boolean);
+  const attributeRatings: Record<string, number> = {};
+  for (const attr of PROFILE_ATTRIBUTE_OPTIONS) {
+    const raw = Number(formData.get(`rating_${attr.value}`) ?? 1);
+    const bounded = Number.isFinite(raw) ? Math.max(1, Math.min(8, Math.round(raw))) : 1;
+    attributeRatings[attr.value] = bounded;
+  }
 
-  const strengths = formData.getAll("strengths").map(String);
-  const weaknesses = formData.getAll("weaknesses").map(String);
-
-  if (!name || !playstyle || !preferredSide || !experienceLevel) {
+  if (
+    !name ||
+    !preferredSide ||
+    !experienceLevel ||
+    playStyles.length === 0 ||
+    !cityOrPostcode ||
+    usualPlayTimes.length === 0
+  ) {
     return { error: "Please fill all required fields." };
   }
 
@@ -61,11 +90,14 @@ export async function completeOnboarding(formData: FormData) {
   const payload = {
     user_id: user.id,
     name,
-    playstyle,
-    strengths,
-    weaknesses,
     preferred_side: preferredSide,
     experience_level: experienceLevel,
+    play_styles: playStyles,
+    profile_attributes: attributeRatings,
+    improvement_areas: improvementAreas,
+    city_or_postcode: cityOrPostcode,
+    travel_distance_km: travelDistanceKm,
+    usual_play_times: usualPlayTimes,
   };
 
   const { error: playerErr } = existing

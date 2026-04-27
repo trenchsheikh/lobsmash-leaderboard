@@ -21,11 +21,14 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
     name: state.profile?.name,
     username: state.profile?.username,
     avatar_url: state.profile?.avatar_url,
-    playstyle: p?.playstyle,
     preferred_side: p?.preferred_side,
     experience_level: p?.experience_level,
-    strengths: p?.strengths,
-    weaknesses: p?.weaknesses,
+    strengths: p?.play_styles,
+    profile_attributes: (p?.profile_attributes as Record<string, number> | null) ?? null,
+    improvement_areas: (p?.improvement_areas as string[] | null) ?? null,
+    city_or_postcode: (p?.city_or_postcode as string | null) ?? null,
+    travel_distance_km: (p?.travel_distance_km as number | null) ?? null,
+    usual_play_times: (p?.usual_play_times as string[] | null) ?? null,
   };
 
   return (

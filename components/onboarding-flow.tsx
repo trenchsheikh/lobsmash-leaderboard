@@ -15,22 +15,24 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   EXPERIENCE_OPTIONS,
+  IMPROVEMENT_OPTIONS,
+  PROFILE_ATTRIBUTE_OPTIONS,
   PLAYSTYLE_OPTIONS,
   PREFERRED_SIDE_OPTIONS,
-  STRENGTH_OPTIONS,
-  WEAKNESS_OPTIONS,
+  TRAVEL_DISTANCE_OPTIONS,
+  USUAL_PLAY_TIME_OPTIONS,
 } from "@/lib/onboarding-options";
 import {
   ArrowLeft,
   ArrowRight,
-  Camera,
+  CalendarDays,
   Check,
   ChevronDown,
   Circle,
-  Gauge,
   Loader2,
+  Moon,
   RefreshCw,
-  UserCircle,
+  Sun,
   X as XIcon,
 } from "lucide-react";
 import { ProfileAvatarField } from "@/components/profile-avatar-field";
@@ -67,35 +69,73 @@ export type OnboardingFlowDefaults = {
   username?: string | null;
   name?: string | null;
   avatar_url?: string | null;
-  playstyle?: string | null;
   preferred_side?: string | null;
   experience_level?: string | null;
   strengths?: string[] | null;
-  weaknesses?: string[] | null;
+  profile_attributes?: Record<string, number> | null;
+  improvement_areas?: string[] | null;
+  city_or_postcode?: string | null;
+  travel_distance_km?: number | null;
+  usual_play_times?: string[] | null;
 };
 
 type StepId =
   | "intro"
   | "username"
   | "name"
-  | "playstyle"
-  | "strengths"
-  | "weaknesses"
-  | "preferred_side"
-  | "experience";
+  | "playing_profile"
+  | "improve_game"
+  | "location";
 
 const ALL_STEPS: StepId[] = [
   "intro",
   "username",
   "name",
-  "playstyle",
-  "strengths",
-  "weaknesses",
-  "preferred_side",
-  "experience",
+  "playing_profile",
+  "improve_game",
+  "location",
 ];
 
 const SUGGESTION_COUNT = 3;
+const ATTRIBUTE_ICON_BY_VALUE: Record<string, string> = {
+  serve_return: "/serve-return.svg",
+  net_game: "/net-game.svg",
+  power: "/power.svg",
+  consistency: "/consistencty.svg",
+  movement: "/movement.svg",
+  tactical_iq: "/tactical-iq.svg",
+};
+const ATTRIBUTE_COLOR_BY_VALUE: Record<
+  string,
+  { bg: string; fg: string }
+> = {
+  serve_return: { bg: "#E7F1FF", fg: "#2B68C9" },
+  net_game: { bg: "#E9F7EA", fg: "#2E8F48" },
+  power: { bg: "#F6EFD8", fg: "#A17921" },
+  consistency: { bg: "#EEF8DE", fg: "#6EA42A" },
+  movement: { bg: "#FDE7E7", fg: "#C74B4B" },
+  tactical_iq: { bg: "#F1E9FF", fg: "#6E47B8" },
+};
+const IMPROVEMENT_ICON_BY_VALUE: Record<string, string> = {
+  serve_return: "/serve-return.svg",
+  net_game: "/net-game.svg",
+  consistency: "/consistencty.svg",
+  movement: "/movement.svg",
+  attacking_play: "/power.svg",
+  tactical_awareness: "/tactical-iq.svg",
+  mental_strength: "/file.svg",
+  fitness_stamina: "/window.svg",
+};
+const IMPROVEMENT_COLOR_BY_VALUE: Record<string, { bg: string; fg: string }> = {
+  serve_return: { bg: "#E7F1FF", fg: "#2B68C9" },
+  net_game: { bg: "#E9F7EA", fg: "#2E8F48" },
+  consistency: { bg: "#EEF8DE", fg: "#6EA42A" },
+  movement: { bg: "#FDE7E7", fg: "#C74B4B" },
+  attacking_play: { bg: "#EAF9F0", fg: "#2D9A61" },
+  tactical_awareness: { bg: "#F1E9FF", fg: "#6E47B8" },
+  mental_strength: { bg: "#FBEAF0", fg: "#B65A7E" },
+  fitness_stamina: { bg: "#E9F8F2", fg: "#2A8B6F" },
+};
 
 const SIDEBAR_STAGES = [
   {
@@ -107,20 +147,20 @@ const SIDEBAR_STAGES = [
   {
     id: "play",
     title: "How you play",
-    subtitle: "Style & strengths",
-    steps: ["playstyle", "strengths"] as StepId[],
+    subtitle: "Step 2 — Playing profile",
+    steps: ["playing_profile"] as StepId[],
   },
   {
     id: "improve",
     title: "Improve my game",
-    subtitle: "Areas to focus on",
-    steps: ["weaknesses", "preferred_side"] as StepId[],
+    subtitle: "Step 3 — Areas to focus on",
+    steps: ["improve_game"] as StepId[],
   },
   {
     id: "location",
     title: "Location",
-    subtitle: "Find courts near you",
-    steps: ["experience"] as StepId[],
+    subtitle: "Step 4 — Find courts",
+    steps: ["location"] as StepId[],
   },
   {
     id: "done",
@@ -131,10 +171,12 @@ const SIDEBAR_STAGES = [
 ] as const;
 
 function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
+  const [reduced, setReduced] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  });
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
     const fn = () => setReduced(mq.matches);
     mq.addEventListener("change", fn);
     return () => mq.removeEventListener("change", fn);
@@ -161,6 +203,7 @@ export function OnboardingFlow({
   const reducedMotion = usePrefersReducedMotion();
   const [pending, startTransition] = useTransition();
   const stepStackRef = useRef<HTMLDivElement>(null);
+  const stepScrollRef = useRef<HTMLDivElement>(null);
 
   const steps = useMemo(
     () =>
@@ -210,22 +253,35 @@ export function OnboardingFlow({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [displayName, setDisplayName] = useState(defaults?.name?.trim() ?? "");
-  const [playstyle, setPlaystyle] = useState(defaults?.playstyle ?? "");
   const [preferredSide, setPreferredSide] = useState(defaults?.preferred_side ?? "");
-  const [experienceLevel, setExperienceLevel] = useState(
-    defaults?.experience_level ?? "",
-  );
-  const [strengths, setStrengths] = useState<Set<string>>(() => {
-    const allowed = new Set<string>(STRENGTH_OPTIONS.map((o) => o.value));
-    return new Set(
-      (defaults?.strengths ?? []).filter((s) => allowed.has(s)),
-    );
+  const [experienceLevel, setExperienceLevel] = useState(defaults?.experience_level ?? "");
+  const [playstyles, setPlaystyles] = useState<Set<string>>(() => {
+    const allowed = new Set<string>(PLAYSTYLE_OPTIONS.map((o) => o.value));
+    return new Set((defaults?.strengths ?? []).filter((v) => allowed.has(v)));
   });
-  const [weaknesses, setWeaknesses] = useState<Set<string>>(() => {
-    const allowed = new Set<string>(WEAKNESS_OPTIONS.map((o) => o.value));
-    return new Set(
-      (defaults?.weaknesses ?? []).filter((w) => allowed.has(w)),
-    );
+  const [attributeRatings, setAttributeRatings] = useState<Record<string, number>>(() => {
+    const base: Record<string, number> = {};
+    for (const attr of PROFILE_ATTRIBUTE_OPTIONS) {
+      const maybe = Number(defaults?.profile_attributes?.[attr.value] ?? 1);
+      base[attr.value] = Number.isFinite(maybe) ? Math.max(1, Math.min(8, Math.round(maybe))) : 1;
+    }
+    return base;
+  });
+  const [improvementAreas, setImprovementAreas] = useState<Set<string>>(() => {
+    const allowed = new Set<string>(IMPROVEMENT_OPTIONS.map((o) => o.value));
+    return new Set((defaults?.improvement_areas ?? []).filter((v) => allowed.has(v)));
+  });
+  const [cityOrPostcode, setCityOrPostcode] = useState(
+    defaults?.city_or_postcode?.trim() ?? "",
+  );
+  const [travelDistanceKm, setTravelDistanceKm] = useState<string>(() => {
+    const n = defaults?.travel_distance_km;
+    if (typeof n === "number" && Number.isFinite(n)) return String(Math.max(1, Math.round(n)));
+    return "10";
+  });
+  const [usualPlayTimes, setUsualPlayTimes] = useState<Set<string>>(() => {
+    const allowed = new Set<string>(USUAL_PLAY_TIME_OPTIONS.map((o) => o.value));
+    return new Set((defaults?.usual_play_times ?? []).filter((v) => allowed.has(v)));
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -243,7 +299,9 @@ export function OnboardingFlow({
   }, [steps.length]);
 
   useEffect(() => {
-    stepStackRef.current?.focus();
+    const scroller = stepScrollRef.current;
+    if (scroller) scroller.scrollTo({ top: 0, behavior: "auto" });
+    stepStackRef.current?.focus({ preventScroll: true });
     setMobileStagesOpen(false);
   }, [stepIndex]);
 
@@ -268,6 +326,26 @@ export function OnboardingFlow({
     else next.add(value);
     updater(next);
   }
+  function toggleImprovementArea(value: string) {
+    setImprovementAreas((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) {
+        next.delete(value);
+        return next;
+      }
+      if (next.size >= 4) return prev;
+      next.add(value);
+      return next;
+    });
+  }
+  function toggleUsualPlayTime(value: string) {
+    setUsualPlayTimes((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  }
 
   const displayAs = (() => {
     const d = displayName.trim();
@@ -282,11 +360,17 @@ export function OnboardingFlow({
     const fd = new FormData();
     fd.set("username", username.trim().toLowerCase());
     fd.set("name", displayAs);
-    fd.set("playstyle", playstyle);
+    fd.set("playstyle", Array.from(playstyles)[0] ?? "");
     fd.set("preferred_side", preferredSide);
     fd.set("experience_level", experienceLevel);
-    for (const s of strengths) fd.append("strengths", s);
-    for (const w of weaknesses) fd.append("weaknesses", w);
+    for (const style of playstyles) fd.append("strengths", style);
+    for (const attr of PROFILE_ATTRIBUTE_OPTIONS) {
+      fd.set(`rating_${attr.value}`, String(attributeRatings[attr.value] ?? 1));
+    }
+    for (const area of improvementAreas) fd.append("improvement_areas", area);
+    fd.set("city_or_postcode", cityOrPostcode.trim());
+    fd.set("travel_distance_km", travelDistanceKm);
+    for (const t of usualPlayTimes) fd.append("usual_play_times", t);
     if (variant === "onboarding" && joinRedirectUrl) {
       fd.set("redirect_url", joinRedirectUrl);
     }
@@ -310,16 +394,17 @@ export function OnboardingFlow({
       }
       case "name":
         return displayAs ? null : "Add a first name or a display name.";
-      case "playstyle":
-        return playstyle ? null : "Pick the style that fits you best.";
-      case "strengths":
-        return strengths.size > 0 ? null : "Pick at least one strength.";
-      case "weaknesses":
-        return weaknesses.size > 0 ? null : "Pick at least one area to grow.";
-      case "preferred_side":
-        return preferredSide ? null : "Choose your preferred side.";
-      case "experience":
-        return experienceLevel ? null : "Tell us your experience level.";
+      case "playing_profile":
+        if (!experienceLevel) return "Tell us your experience level.";
+        if (!preferredSide) return "Choose your preferred side.";
+        if (playstyles.size === 0) return "Pick at least one play style.";
+        return null;
+      case "improve_game":
+        return null;
+      case "location":
+        if (!cityOrPostcode.trim()) return "Add your city or postcode.";
+        if (usualPlayTimes.size === 0) return "Pick at least one usual play time.";
+        return null;
       default:
         return null;
     }
@@ -373,7 +458,7 @@ export function OnboardingFlow({
       ? "Let’s go"
       : isLast
         ? variant === "onboarding"
-          ? "Finish & enter LobSmash"
+          ? "Finish setup"
           : "Save profile"
         : "Continue";
   const currentSidebarStageIndex =
@@ -394,11 +479,9 @@ export function OnboardingFlow({
       intro: "Intro",
       username: "Handle",
       name: "Name & photo",
-      playstyle: "Style",
-      strengths: "Strengths",
-      weaknesses: "Areas",
-      preferred_side: "Side",
-      experience: "Level",
+      playing_profile: "Playing profile",
+      improve_game: "Improve my game",
+      location: "Location",
     };
     const activeId = activeSidebarStage.steps[activeStageStepIndex];
     return activeId ? mapped[activeId] : null;
@@ -406,7 +489,11 @@ export function OnboardingFlow({
 
   const stepMetaLabel =
     activeSidebarStage && activeStageStepTotal > 0 && stepId !== "intro"
-      ? `${activeSidebarStage.title} \u2022 Step ${activeStageStepIndex + 1} of ${activeStageStepTotal}`
+      ? stepId === "improve_game"
+        ? "Improve my game • Step 1 of 1"
+        : stepId === "location"
+          ? "Location • Step 1 of 1"
+        : `${activeSidebarStage.title} \u2022 Step ${activeStageStepIndex + 1} of ${activeStageStepTotal}`
       : null;
 
   const usernameNormalized = normalizeUsername(username);
@@ -614,13 +701,20 @@ export function OnboardingFlow({
       ) : null}
 
       <section className="relative order-2 flex min-w-0 min-h-0 flex-1 flex-col bg-white motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-400">
-        <div className="w-full min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-5 sm:px-5 sm:pb-8 sm:pt-6 lg:px-6 lg:pb-28">
-          <div className="w-full max-w-[1240px]">
+        <div
+          ref={stepScrollRef}
+          className="w-full min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-3 sm:px-5 sm:pb-8 sm:pt-4 lg:px-6 lg:pb-28"
+        >
+            <div className="w-full max-w-none">
             {accountSlot ? (
               <div className="mb-6 border-b border-border/60 pb-4">{accountSlot}</div>
             ) : null}
 
-            <div className="mb-6" role="group" aria-label={variant === "onboarding" ? "Onboarding progress" : "Profile progress"}>
+            <div
+              className="sticky top-0 z-20 -mx-1 mb-5 bg-white/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80"
+              role="group"
+              aria-label={variant === "onboarding" ? "Onboarding progress" : "Profile progress"}
+            >
               <div
                 className="h-[2px] overflow-hidden rounded-full bg-[#e7ebf1]"
                 role="progressbar"
@@ -723,7 +817,7 @@ export function OnboardingFlow({
                     <h1
                       className={cn(
                         onboardingHeadingFont.className,
-                        "mt-1 text-[28px] font-bold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
+                          "mt-1 text-[28px] font-semibold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
                       )}
                     >
                       Pick a handle
@@ -865,7 +959,7 @@ export function OnboardingFlow({
                     <h1
                       className={cn(
                         onboardingHeadingFont.className,
-                        "mt-1 text-[28px] font-bold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
+                          "mt-1 text-[28px] font-semibold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
                       )}
                     >
                       Name &amp; photo
@@ -953,193 +1047,419 @@ export function OnboardingFlow({
                   </div>
                 ) : null}
 
-                {stepId === "playstyle" ? (
-                  <div className="w-full max-w-[620px]">
-                    <h1
-                      className={cn(
-                        onboardingHeadingFont.className,
-                        "mt-1 text-[28px] font-bold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
-                      )}
-                    >
-                      Your vibe
-                    </h1>
-                    <p className="mt-2 text-[15px] leading-[1.45] text-[#6f7d91]">What fits you best?</p>
-                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                      {PLAYSTYLE_OPTIONS.map((o) => {
-                        const on = playstyle === o.value;
-                        return (
-                          <button
-                            key={o.value}
-                            type="button"
-                            onClick={() => setPlaystyle(o.value)}
-                            className={cn(
-                              "min-h-[80px] rounded-[10px] border-[1.5px] p-4 text-left transition-all duration-200",
-                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86E10B]/40",
-                              "active:scale-[0.99] motion-reduce:active:scale-100",
-                              on
-                                ? "border-[#86E10B] bg-[#F7FCEB]"
-                                : "border-[#E2E8F0] bg-white hover:border-[#86E10B]/60",
-                            )}
+                {stepId === "playing_profile" ? (
+                  <div className="w-full max-w-none space-y-6 pb-8">
+                    <div>
+                      <h1
+                        className={cn(
+                          onboardingHeadingFont.className,
+                          "mt-1 text-[28px] font-semibold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
+                        )}
+                      >
+                        Your playing profile
+                      </h1>
+                      <p className="mt-2 text-[15px] leading-[1.45] text-[#6f7d91]">
+                        This helps us build your player profile and power your AI match analysis.
+                      </p>
+                    </div>
+
+                    <div>
+                      <p
+                        className={cn(
+                          onboardingHeadingFont.className,
+                          "text-[11px] font-semibold uppercase tracking-[0.08em] text-[#00235B]",
+                        )}
+                      >
+                        How long have you been playing padel?
+                      </p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {EXPERIENCE_OPTIONS.map((o) => {
+                          const on = experienceLevel === o.value;
+                          return (
+                            <button
+                              key={o.value}
+                              type="button"
+                              onClick={() => setExperienceLevel(o.value)}
+                              className={cn(
+                                "min-h-[78px] rounded-[12px] border-[1.5px] p-4 text-left transition-all duration-200",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86E10B]/40",
+                                on
+                                  ? "border-[#86E10B] bg-[#F3FADF]"
+                                  : "border-[#d8dee9] bg-white hover:border-[#86E10B]/60",
+                              )}
+                            >
+                              <span className="block text-[20px] font-semibold text-[#00235B]">{o.label}</span>
+                              <span
+                                className={cn(
+                                  onboardingBodyFont.className,
+                                  "mt-1 block text-[13px] text-[#6f7d91]",
+                                )}
+                              >
+                                {o.hint}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p
+                        className={cn(
+                          onboardingHeadingFont.className,
+                          "text-[11px] font-semibold uppercase tracking-[0.08em] text-[#00235B]",
+                        )}
+                      >
+                        Preferred side
+                      </p>
+                      <div className="mt-3 grid grid-cols-3 gap-3 lg:max-w-[620px]">
+                        {PREFERRED_SIDE_OPTIONS.map((o) => {
+                          const on = preferredSide === o.value;
+                          return (
+                            <button
+                              key={o.value}
+                              type="button"
+                              onClick={() => setPreferredSide(o.value)}
+                              className={cn(
+                                "min-h-[78px] rounded-[12px] border-[1.5px] p-4 text-left transition-all duration-200",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86E10B]/40",
+                                on
+                                  ? "border-[#86E10B] bg-[#F3FADF]"
+                                  : "border-[#d8dee9] bg-white hover:border-[#86E10B]/60",
+                              )}
+                            >
+                              <span className="block text-[20px] font-semibold text-[#00235B]">{o.label}</span>
+                              <span
+                                className={cn(
+                                  onboardingBodyFont.className,
+                                  "mt-1 block text-[13px] text-[#6f7d91]",
+                                )}
+                              >
+                                {o.hint}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#00235B]">
+                        Rate your attributes
+                        <span className="ml-2 normal-case tracking-normal text-[#6f7d91]">
+                          1 = weak · 8 = strong
+                        </span>
+                      </p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:max-w-[860px]">
+                        {PROFILE_ATTRIBUTE_OPTIONS.map((attr) => (
+                          <div
+                            key={attr.value}
+                            className="rounded-[12px] border border-[#dfe5ef] bg-[#f3f5fa] p-3"
                           >
-                            <span className="block text-[15px] font-semibold text-[#00235B]">{o.label}</span>
-                            <span className="mt-1 block text-[13px] leading-[1.25] text-[#6f7d91]">{o.hint}</span>
-                          </button>
-                        );
-                      })}
+                            <p className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-[#00235B]">
+                              <span
+                                className="grid size-6 place-items-center rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    ATTRIBUTE_COLOR_BY_VALUE[attr.value]?.bg ?? "#E9EFF7",
+                                }}
+                              >
+                                <span
+                                  aria-hidden
+                                  className="block size-3.5"
+                                  style={{
+                                    backgroundColor:
+                                      ATTRIBUTE_COLOR_BY_VALUE[attr.value]?.fg ?? "#4D5B73",
+                                    WebkitMaskImage: `url("${ATTRIBUTE_ICON_BY_VALUE[attr.value] ?? "/window.svg"}")`,
+                                    maskImage: `url("${ATTRIBUTE_ICON_BY_VALUE[attr.value] ?? "/window.svg"}")`,
+                                    WebkitMaskRepeat: "no-repeat",
+                                    maskRepeat: "no-repeat",
+                                    WebkitMaskPosition: "center",
+                                    maskPosition: "center",
+                                    WebkitMaskSize: "contain",
+                                    maskSize: "contain",
+                                  }}
+                                />
+                              </span>
+                              {attr.label}
+                            </p>
+                            <div className="grid grid-cols-8 gap-1">
+                              {Array.from({ length: 8 }, (_, i) => i + 1).map((score) => {
+                                const on = (attributeRatings[attr.value] ?? 1) >= score;
+                                return (
+                                  <button
+                                    key={`${attr.value}-${score}`}
+                                    type="button"
+                                    aria-label={`${attr.label} rating ${score}`}
+                                    onClick={() =>
+                                      setAttributeRatings((prev) => ({
+                                        ...prev,
+                                        [attr.value]: score,
+                                      }))
+                                    }
+                                    className={cn(
+                                      "h-7 rounded-md border text-[11px] font-semibold",
+                                      on
+                                        ? "border-[#79cd0a] bg-[#86E10B] text-[#16314f]"
+                                        : "border-[#d6dde8] bg-white text-[#8d98aa]",
+                                    )}
+                                  >
+                                    {score}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#00235B]">
+                        Play style <span className="normal-case tracking-normal text-[#6f7d91]">(select all that apply)</span>
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {PLAYSTYLE_OPTIONS.map((o) => {
+                          const on = playstyles.has(o.value);
+                          return (
+                            <div key={o.value} className="group relative">
+                              <button
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => toggleInSet(playstyles, setPlaystyles, o.value)}
+                                className={cn(
+                                  "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-all duration-150",
+                                  on
+                                    ? "border-[#00235B] bg-[#e8f0ff] text-[#00235B]"
+                                    : "border-[#d8dee9] bg-white text-[#4d5b73] hover:border-[#00235B]/50",
+                                )}
+                              >
+                                {o.label}
+                                <span
+                                  aria-hidden
+                                  className={cn(
+                                    "grid size-4 shrink-0 place-items-center rounded-full border text-[10px] font-semibold",
+                                    on
+                                      ? "border-[#7f96bf] bg-[#d7e6ff] text-[#39507c]"
+                                      : "border-[#d8dee9] bg-[#f6f8fb] text-[#8893a6]",
+                                  )}
+                                >
+                                  i
+                                </span>
+                              </button>
+
+                              <div
+                                className={cn(
+                                  "pointer-events-none absolute bottom-[calc(100%+8px)] left-0 z-40 w-[280px] rounded-xl border border-[#0b3d8d] bg-[#0B4FAE] p-3 text-white shadow-xl",
+                                  "translate-y-1 opacity-0 transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100",
+                                )}
+                                role="tooltip"
+                              >
+                                <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-[#A9D236]">
+                                  {o.label}
+                                </p>
+                                <p className="mt-1 text-[12px] leading-[1.35] text-white/95">
+                                  {o.hint}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 ) : null}
 
-                {stepId === "strengths" ? (
-                  <div className="w-full max-w-[620px]">
-                    <h1
-                      className={cn(
-                        onboardingHeadingFont.className,
-                        "mt-1 text-[28px] font-bold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
-                      )}
-                    >
-                      Your weapons
-                    </h1>
-                    <p className="mt-2 text-[15px] leading-[1.45] text-[#6f7d91]">
-                      Tap to toggle — show off what you&rsquo;ve got.
-                    </p>
-                    <div className="mt-6 flex flex-wrap gap-2">
-                      {STRENGTH_OPTIONS.map((o) => {
-                        const on = strengths.has(o.value);
+                {stepId === "improve_game" ? (
+                  <div className="w-full max-w-none space-y-5 pb-8">
+                    <div>
+                      <p className="text-[13px] font-semibold tracking-tight text-[#86E10B]">
+                        Improve my game • Step 3
+                      </p>
+                      <h1
+                        className={cn(
+                          onboardingHeadingFont.className,
+                          "mt-1 text-[28px] font-semibold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
+                        )}
+                      >
+                        Areas for improvement
+                      </h1>
+                      <p className="mt-2 text-[15px] leading-[1.45] text-[#6f7d91]">
+                        Our AI will track these in your matches and give you targeted insights.
+                        <span className="ml-1 text-[#8b97a9]">(Optional — select up to 4)</span>
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:max-w-[980px]">
+                      {IMPROVEMENT_OPTIONS.map((option) => {
+                        const on = improvementAreas.has(option.value);
+                        const limitReached = !on && improvementAreas.size >= 4;
                         return (
                           <button
-                            key={o.value}
+                            key={option.value}
                             type="button"
                             aria-pressed={on}
-                            onClick={() => toggleInSet(strengths, setStrengths, o.value)}
-                            title={o.hint}
+                            onClick={() => toggleImprovementArea(option.value)}
+                            disabled={limitReached}
                             className={cn(
-                              "min-h-10 rounded-full border-[1.5px] px-4 py-2 text-[14px] font-medium transition-all duration-200",
+                              "flex items-center gap-3 rounded-[12px] border p-3 text-left transition-all duration-150",
                               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86E10B]/40",
-                              "active:scale-[0.98] motion-reduce:active:scale-100",
                               on
-                                ? "border-[#86E10B] bg-[#86E10B] text-[#00235B]"
-                                : "border-[#E2E8F0] bg-white text-[#4d5b73] hover:border-[#86E10B]/60 hover:text-[#00235B]",
+                                ? "border-[#86E10B] bg-[#F3FADF]"
+                                : "border-[#d9dfe8] bg-[#f8fafd] hover:border-[#b8c4d8]",
+                              limitReached && "cursor-not-allowed opacity-60",
                             )}
                           >
-                            {o.label}
+                            <span
+                              className="grid size-8 shrink-0 place-items-center rounded-full"
+                              style={{
+                                backgroundColor:
+                                  IMPROVEMENT_COLOR_BY_VALUE[option.value]?.bg ?? "#E9EFF7",
+                              }}
+                            >
+                              <span
+                                aria-hidden
+                                className="block size-4"
+                                style={{
+                                  backgroundColor:
+                                    IMPROVEMENT_COLOR_BY_VALUE[option.value]?.fg ?? "#4D5B73",
+                                  WebkitMaskImage: `url("${IMPROVEMENT_ICON_BY_VALUE[option.value] ?? "/window.svg"}")`,
+                                  maskImage: `url("${IMPROVEMENT_ICON_BY_VALUE[option.value] ?? "/window.svg"}")`,
+                                  WebkitMaskRepeat: "no-repeat",
+                                  maskRepeat: "no-repeat",
+                                  WebkitMaskPosition: "center",
+                                  maskPosition: "center",
+                                  WebkitMaskSize: "contain",
+                                  maskSize: "contain",
+                                }}
+                              />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-[18px] font-semibold text-[#1b355f]">
+                                {option.label}
+                              </span>
+                              <span className="mt-0.5 block text-[13px] text-[#71819a]">
+                                {option.hint}
+                              </span>
+                            </span>
                           </button>
                         );
                       })}
                     </div>
-                  </div>
-                ) : null}
 
-                {stepId === "weaknesses" ? (
-                  <div className="w-full max-w-[620px]">
-                    <h1
-                      className={cn(
-                        onboardingHeadingFont.className,
-                        "mt-1 text-[28px] font-bold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
-                      )}
-                    >
-                      Still growing
-                    </h1>
-                    <p className="mt-2 text-[15px] leading-[1.45] text-[#6f7d91]">
-                      Honest picks help balance sides.
+                    <p className="text-[12px] text-[#8b97a9]">
+                      {improvementAreas.size} of 4 selected — LobSmash AI will highlight these in your
+                      post-match reports.
                     </p>
-                    <div className="mt-6 flex flex-wrap gap-2">
-                      {WEAKNESS_OPTIONS.map((o) => {
-                        const on = weaknesses.has(o.value);
-                        return (
-                          <button
-                            key={o.value}
-                            type="button"
-                            aria-pressed={on}
-                            onClick={() => toggleInSet(weaknesses, setWeaknesses, o.value)}
-                            title={o.hint}
-                            className={cn(
-                              "min-h-10 rounded-full border-[1.5px] px-4 py-2 text-[14px] font-medium transition-all duration-200",
-                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86E10B]/40",
-                              "active:scale-[0.98] motion-reduce:active:scale-100",
-                              on
-                                ? "border-[#00235B] bg-[#00235B] text-white"
-                                : "border-[#E2E8F0] bg-white text-[#4d5b73] hover:border-[#00235B]/60 hover:text-[#00235B]",
-                            )}
-                          >
-                            {o.label}
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
                 ) : null}
 
-                {stepId === "preferred_side" ? (
-                  <div className="w-full max-w-[620px]">
-                    <h1
-                      className={cn(
-                        onboardingHeadingFont.className,
-                        "mt-1 text-[28px] font-bold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
-                      )}
-                    >
-                      Favourite side
-                    </h1>
-                    <p className="mt-2 text-[15px] leading-[1.45] text-[#6f7d91]">Where you feel most at home.</p>
-                    <div className="mt-6 grid gap-3">
-                      {PREFERRED_SIDE_OPTIONS.map((o) => {
-                        const on = preferredSide === o.value;
-                        return (
-                          <button
-                            key={o.value}
-                            type="button"
-                            onClick={() => setPreferredSide(o.value)}
-                            className={cn(
-                              "min-h-[68px] rounded-[10px] border-[1.5px] p-4 text-left transition-all duration-200",
-                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86E10B]/40",
-                              "active:scale-[0.99] motion-reduce:active:scale-100",
-                              on
-                                ? "border-[#86E10B] bg-[#F7FCEB]"
-                                : "border-[#E2E8F0] bg-white hover:border-[#86E10B]/60",
-                            )}
-                          >
-                            <span className="block text-[15px] font-semibold text-[#00235B]">{o.label}</span>
-                            <span className="mt-1 block text-[13px] leading-[1.25] text-[#6f7d91]">{o.hint}</span>
-                          </button>
-                        );
-                      })}
+                {stepId === "location" ? (
+                  <div className="w-full max-w-none space-y-5 pb-8">
+                    <div>
+                      <p className="text-[13px] font-semibold tracking-tight text-[#86E10B]">
+                        Location • Step 4
+                      </p>
+                      <h1
+                        className={cn(
+                          onboardingHeadingFont.className,
+                          "mt-1 text-[28px] font-semibold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
+                        )}
+                      >
+                        Where do you play?
+                      </h1>
+                      <p className="mt-2 text-[15px] leading-[1.45] text-[#6f7d91]">
+                        We&apos;ll show you courts, open matches and leagues near you.
+                      </p>
                     </div>
-                  </div>
-                ) : null}
 
-                {stepId === "experience" ? (
-                  <div className="w-full max-w-[620px]">
-                    <h1
-                      className={cn(
-                        onboardingHeadingFont.className,
-                        "mt-1 text-[28px] font-bold leading-[1.1] tracking-tight text-[#00235B] sm:text-[34px]",
-                      )}
-                    >
-                      Level check
-                    </h1>
-                    <p className="mt-2 text-[15px] leading-[1.45] text-[#6f7d91]">So we match session intensity.</p>
-                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                      {EXPERIENCE_OPTIONS.map((o) => {
-                        const on = experienceLevel === o.value;
-                        return (
-                          <button
-                            key={o.value}
-                            type="button"
-                            onClick={() => setExperienceLevel(o.value)}
-                            className={cn(
-                              "min-h-[80px] rounded-[10px] border-[1.5px] p-4 text-left transition-all duration-200",
-                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86E10B]/40",
-                              "active:scale-[0.99] motion-reduce:active:scale-100",
-                              on
-                                ? "border-[#86E10B] bg-[#F7FCEB]"
-                                : "border-[#E2E8F0] bg-white hover:border-[#86E10B]/60",
-                            )}
-                          >
-                            <span className="block text-[15px] font-semibold text-[#00235B]">{o.label}</span>
-                            <span className="mt-1 block text-[13px] leading-[1.25] text-[#6f7d91]">{o.hint}</span>
-                          </button>
-                        );
-                      })}
+                    <div className="max-w-[980px] space-y-4">
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="flow-city-postcode"
+                          className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#00235B]"
+                        >
+                          City or postcode
+                        </Label>
+                        <Input
+                          id="flow-city-postcode"
+                          value={cityOrPostcode}
+                          onChange={(e) => setCityOrPostcode(e.target.value)}
+                          placeholder="London, United Kingdom"
+                          autoComplete="address-level2"
+                          className="h-[52px] rounded-[10px] border-[1.5px] border-[#E2E8F0] text-[16px] text-[#0F1E3F] placeholder:text-[#aab1bf] transition-colors duration-200 focus-visible:border-[#00235B] focus-visible:ring-[#00235B]/15 sm:text-[15px]"
+                        />
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#00235B]">
+                          How far will you travel?
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {TRAVEL_DISTANCE_OPTIONS.map((o) => {
+                            const on = travelDistanceKm === o.value;
+                            return (
+                              <button
+                                key={o.value}
+                                type="button"
+                                onClick={() => setTravelDistanceKm(o.value)}
+                                className={cn(
+                                  "rounded-full border px-4 py-1.5 text-[13px] font-medium transition-colors",
+                                  on
+                                    ? "border-[#00235B] bg-[#00235B] text-white"
+                                    : "border-[#d8dee9] bg-white text-[#66758f] hover:border-[#00235B]/40",
+                                )}
+                              >
+                                {o.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#00235B]">
+                          When do you usually play?
+                        </p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:max-w-[860px]">
+                          {USUAL_PLAY_TIME_OPTIONS.map((option) => {
+                            const on = usualPlayTimes.has(option.value);
+                            const Icon =
+                              option.value === "weekday_mornings"
+                                ? Sun
+                                : option.value === "weekday_evenings"
+                                  ? Moon
+                                  : CalendarDays;
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => toggleUsualPlayTime(option.value)}
+                                className={cn(
+                                  "flex items-center gap-3 rounded-[12px] border p-3 text-left transition-all duration-150",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86E10B]/40",
+                                  on
+                                    ? "border-[#86E10B] bg-[#F3FADF]"
+                                    : "border-[#d9dfe8] bg-[#f8fafd] hover:border-[#b8c4d8]",
+                                )}
+                              >
+                                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#EAF0FA] text-[#5D6F8E]">
+                                  <Icon className="size-4" />
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block text-[18px] font-semibold text-[#1b355f]">
+                                    {option.label}
+                                  </span>
+                                  <span className="mt-0.5 block text-[13px] text-[#71819a]">
+                                    {option.hint}
+                                  </span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -1154,7 +1474,7 @@ export function OnboardingFlow({
           </div>
         </div>
         <div className="sticky bottom-0 z-20 mt-auto bg-transparent px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:border-t sm:border-[#e2e8f0] sm:bg-white sm:px-5 sm:pb-4 lg:px-6 lg:pb-6">
-          <div className="flex w-full max-w-[1240px] items-center justify-between">
+          <div className="flex w-full max-w-none items-center justify-between">
             <div>
               {canGoBack ? (
                 <button

@@ -10,8 +10,6 @@ import {
   labelForExperience,
   labelForPlaystyle,
   labelForSide,
-  labelForStrength,
-  labelForWeakness,
 } from "@/lib/onboarding-options";
 import {
   computeRadarFromProfile,
@@ -62,9 +60,8 @@ export function PlayerProfileAnalyticsModal({
   const [username, setUsername] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
-  const [playstyle, setPlaystyle] = useState<string | null>(null);
-  const [strengths, setStrengths] = useState<string[]>([]);
-  const [weaknesses, setWeaknesses] = useState<string[]>([]);
+  const [playStyles, setPlayStyles] = useState<string[]>([]);
+  const [profileAttributes, setProfileAttributes] = useState<Record<string, number>>({});
   const [preferredSide, setPreferredSide] = useState<string | null>(null);
   const [experienceLevel, setExperienceLevel] = useState<string | null>(null);
   const [skill, setSkill] = useState<number>(DEFAULT_SKILL);
@@ -100,7 +97,7 @@ export function PlayerProfileAnalyticsModal({
       const { data: playerRow, error: pErr } = await supabase
         .from("players")
         .select(
-          "id, user_id, playstyle, strengths, weaknesses, preferred_side, experience_level",
+          "id, user_id, play_styles, profile_attributes, preferred_side, experience_level",
         )
         .eq("id", playerId)
         .maybeSingle();
@@ -136,9 +133,10 @@ export function PlayerProfileAnalyticsModal({
     setName((userRow?.name as string)?.trim() ?? "Player");
     setUsername((userRow?.username as string)?.trim() ?? null);
     setAvatarUrl((userRow?.avatar_url as string)?.trim() ?? null);
-    setPlaystyle((playerRow.playstyle as string) ?? null);
-    setStrengths((playerRow.strengths as string[]) ?? []);
-    setWeaknesses((playerRow.weaknesses as string[]) ?? []);
+    setPlayStyles((playerRow.play_styles as string[]) ?? []);
+    setProfileAttributes(
+      (playerRow.profile_attributes as Record<string, number> | null) ?? {},
+    );
     setPreferredSide((playerRow.preferred_side as string) ?? null);
     setExperienceLevel((playerRow.experience_level as string) ?? null);
 
@@ -286,14 +284,12 @@ export function PlayerProfileAnalyticsModal({
   }, [open, playerId, load]);
 
   const radarDisplay =
-    strengths.length ||
-    weaknesses.length ||
-    playstyle ||
+    playStyles.length ||
+    Object.keys(profileAttributes).length ||
     experienceLevel
       ? computeRadarFromProfile({
-          playstyle,
-          strengths,
-          weaknesses,
+          play_styles: playStyles,
+          profile_attributes: profileAttributes,
           experience_level: experienceLevel,
         })
       : neutralRadar();
@@ -430,7 +426,7 @@ export function PlayerProfileAnalyticsModal({
                 <ul className="space-y-1.5 text-sm text-foreground">
                   <li>
                     <span className="text-muted-foreground">Playstyle: </span>
-                    {labelForPlaystyle(playstyle)}
+                    {labelForPlaystyle(playStyles[0] ?? null)}
                   </li>
                   <li>
                     <span className="text-muted-foreground">Side: </span>
@@ -441,24 +437,12 @@ export function PlayerProfileAnalyticsModal({
                     {labelForExperience(experienceLevel)}
                   </li>
                 </ul>
-                {strengths.length > 0 ? (
+                {playStyles.length > 0 ? (
                   <div className="mt-3">
-                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Strengths</p>
+                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Play styles</p>
                     <ul className="mt-1 list-inside list-disc text-sm text-muted-foreground">
-                      {strengths.map((s) => (
-                        <li key={s}>{labelForStrength(s)}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {weaknesses.length > 0 ? (
-                  <div className="mt-3">
-                    <p className="text-xs font-medium text-amber-800 dark:text-amber-400/90">
-                      Working on
-                    </p>
-                    <ul className="mt-1 list-inside list-disc text-sm text-muted-foreground">
-                      {weaknesses.map((w) => (
-                        <li key={w}>{labelForWeakness(w)}</li>
+                      {playStyles.map((s) => (
+                        <li key={s}>{labelForPlaystyle(s)}</li>
                       ))}
                     </ul>
                   </div>

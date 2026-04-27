@@ -1,104 +1,89 @@
-/** Padel-focused copy. Values are stable snake_case for DB; labels are user-facing. */
+/** Playing-profile copy from new onboarding design. */
 
-export const PLAYSTYLE_OPTIONS = [
-  {
-    value: "net_presser",
-    label: "Net presser",
-    hint: "You love closing space, finishing points, and owning the bandeja zone.",
-  },
-  {
-    value: "wall_grinder",
-    label: "Wall grinder",
-    hint: "Patience off the glass, reset lobs, and wait for the right ball to attack.",
-  },
-  {
-    value: "lob_tactician",
-    label: "Lob tactician",
-    hint: "Height, depth, and court position—you move opponents like chess pieces.",
-  },
-  {
-    value: "counter_striker",
-    label: "Counter striker",
-    hint: "Absorb pace and turn defense into sudden winners with timing.",
-  },
-  {
-    value: "all_court_mixer",
-    label: "All-court mixer",
-    hint: "Comfortable everywhere—net, walls, and transitions in one rally.",
-  },
-  {
-    value: "padel_rookie",
-    label: "Still finding my feet",
-    hint: "Learning walls, positioning, and when to leave the ball—no shame.",
-  },
-] as const;
-
-export const STRENGTH_OPTIONS = [
-  { value: "bandeja", label: "Bandeja", hint: "Controlled aggression from mid-court." },
-  { value: "vibora", label: "Víbora", hint: "Side-spin attacks that stay low off the glass." },
-  { value: "smash_finish", label: "Smash / finishing", hint: "Putting high balls away with authority." },
-  { value: "defensive_glass", label: "Defensive glass", hint: "Calm exits from the back glass under pressure." },
-  { value: "lob_quality", label: "Lob quality", hint: "Lobs that buy time and break rhythm." },
-  { value: "net_presence", label: "Net presence", hint: "Hands fast at the net, poaches, and blocks." },
-  { value: "court_speed", label: "Court speed", hint: "Recovery steps and closing to the ball." },
-  { value: "serve_rhythm", label: "Serve + first ball", hint: "Starting points with intent." },
-  { value: "tactical_patience", label: "Tactical patience", hint: "Choosing the right moment to attack." },
-  { value: "back_wall_reading", label: "Reading off the back wall", hint: "Letting balls travel and staying balanced." },
-] as const;
-
-export const WEAKNESS_OPTIONS = [
-  { value: "back_glass_panic", label: "Back-glass panic", hint: "Tight when the ball sits deep on the glass." },
-  { value: "bandeja_consistency", label: "Bandeja consistency", hint: "Height and depth still a work in progress." },
-  { value: "smash_defense", label: "Defending smashes", hint: "High lobs and positioning vs overhead pressure." },
-  { value: "corner_traffic", label: "Corner traffic", hint: "Getting boxed in on the side glass." },
-  { value: "lob_defense", label: "Defending lobs", hint: "Tracking moonballs and staying organized." },
-  { value: "net_duels", label: "Net duels", hint: "Quick exchanges and reflex volleys." },
-  { value: "transition_net", label: "Moving forward", hint: "Timing the approach from baseline to net." },
-  { value: "serve_return", label: "Return of serve", hint: "Neutralizing tricky serves under pressure." },
-  { value: "side_wall_reads", label: "Side-wall reads", hint: "Balls that kiss the side glass." },
-  { value: "consistency_rallies", label: "Rally consistency", hint: "Unforced errors in longer points." },
+export const EXPERIENCE_OPTIONS = [
+  { value: "lt_1y", label: "Less than 1 year", hint: "Total beginner" },
+  { value: "y1_3", label: "1–3 years", hint: "Building your game" },
+  { value: "y3_5", label: "3–5 years", hint: "Well established" },
+  { value: "gt_5y", label: "5+ years", hint: "Seasoned player" },
 ] as const;
 
 export const PREFERRED_SIDE_OPTIONS = [
+  { value: "left", label: "Left", hint: "Drive & smash" },
+  { value: "right", label: "Right", hint: "Control & volley" },
+  { value: "both", label: "Both", hint: "Flexible" },
+] as const;
+
+export const PROFILE_ATTRIBUTE_OPTIONS = [
+  { value: "serve_return", label: "Serve & Return" },
+  { value: "net_game", label: "Net Game" },
+  { value: "power", label: "Power" },
+  { value: "consistency", label: "Consistency" },
+  { value: "movement", label: "Movement" },
+  { value: "tactical_iq", label: "Tactical IQ" },
+] as const;
+
+export const IMPROVEMENT_OPTIONS = [
+  { value: "serve_return", label: "Serve & return", hint: "First strike accuracy & placement" },
+  { value: "net_game", label: "Net game", hint: "Volleys, smashes & net positioning" },
+  { value: "consistency", label: "Consistency", hint: "Fewer unforced errors per match" },
+  { value: "movement", label: "Movement", hint: "Court coverage & recovery speed" },
+  { value: "attacking_play", label: "Attacking play", hint: "Winners, lobs & bandeja control" },
+  { value: "tactical_awareness", label: "Tactical awareness", hint: "Reading opponents & game patterns" },
+  { value: "mental_strength", label: "Mental strength", hint: "Pressure situations & match nerves" },
+  { value: "fitness_stamina", label: "Fitness & stamina", hint: "Endurance across longer matches" },
+] as const;
+
+export const TRAVEL_DISTANCE_OPTIONS = [
+  { value: "5", label: "5 km" },
+  { value: "10", label: "10 km" },
+  { value: "25", label: "25 km" },
+  { value: "any", label: "Anywhere" },
+] as const;
+
+export const USUAL_PLAY_TIME_OPTIONS = [
+  { value: "weekday_mornings", label: "Weekday mornings", hint: "Mon–Fri, 6am–11pm" },
+  { value: "weekday_evenings", label: "Weekday evenings", hint: "Mon–Fri, 5pm–10pm" },
+  { value: "weekends", label: "Weekends", hint: "Sat & Sun, all day" },
+  { value: "flexible", label: "Flexible", hint: "Anytime works" },
+] as const;
+
+export const PLAYSTYLE_OPTIONS = [
   {
-    value: "left",
-    label: "Left / drive side",
-    hint: "I like the forehand lane, bandeja setup, and owning the left wall.",
+    value: "aggressive_baseliner",
+    label: "Aggressive baseliner",
+    hint: "You dictate play from the back with powerful groundstrokes, putting opponents under pressure with pace and depth.",
   },
   {
-    value: "right",
-    label: "Right / backhand wall",
-    hint: "Comfortable on the right—defense, víboras, and glass exits.",
+    value: "net_rusher",
+    label: "Net rusher",
+    hint: "You move forward at every opportunity, finishing points at the net with volleys and overhead smashes.",
   },
   {
-    value: "either",
-    label: "Either side",
-    hint: "Happy to adapt—pair me where the team needs balance.",
+    value: "defensive_counter",
+    label: "Defensive counter",
+    hint: "You excel at retrieving difficult balls and redirecting play, letting opponents make mistakes while you reset.",
+  },
+  {
+    value: "power_hitter",
+    label: "Power hitter",
+    hint: "Your game is built on raw power - big smashes, hard drives and winners that opponents struggle to handle.",
+  },
+  {
+    value: "consistent_patient",
+    label: "Consistent & patient",
+    hint: "You rarely make unforced errors, happy to grind long rallies and trust your opponent to crack first.",
+  },
+  {
+    value: "all_court",
+    label: "All-court",
+    hint: "You adapt your game to any situation - comfortable at the net, baseline or anywhere in between.",
   },
 ] as const;
 
-export const EXPERIENCE_OPTIONS = [
-  {
-    value: "first_steps",
-    label: "First steps on court",
-    hint: "New to padel—learning rules, walls, and basic positioning.",
-  },
-  {
-    value: "club_social",
-    label: "Club & social play",
-    hint: "Regular games with friends or open play—building confidence.",
-  },
-  {
-    value: "league_club",
-    label: "League & club ladder",
-    hint: "Structured matches, local leagues, or club rankings.",
-  },
-  {
-    value: "tournament_hunter",
-    label: "Tournaments & events",
-    hint: "You chase draws, seeding, and weekend competition.",
-  },
-] as const;
+/** Kept for compatibility in profile edit surfaces; now mirrors play styles. */
+export const STRENGTH_OPTIONS = PLAYSTYLE_OPTIONS;
+/** Kept for compatibility in profile edit surfaces; now mirrors play styles. */
+export const WEAKNESS_OPTIONS = PLAYSTYLE_OPTIONS;
 
 /** Legacy DB values from pre-padel copy → display label (for hydrating old profiles). */
 export const LEGACY_PLAYSTYLE_LABELS: Record<string, string> = {
@@ -130,6 +115,7 @@ export const LEGACY_WEAKNESS_LABELS: Record<string, string> = {
 export const LEGACY_SIDE_LABELS: Record<string, string> = {
   left: "Left (deuce) — legacy",
   right: "Right (ad) — legacy",
+  both: "Both sides",
   either: "Either side — legacy",
 };
 
@@ -139,6 +125,11 @@ export const LEGACY_EXPERIENCE_LABELS: Record<string, string> = {
   advanced: "Advanced (legacy)",
   competitive: "Competitive (legacy)",
 };
+
+export function labelForProfileAttribute(value: string): string {
+  const opt = PROFILE_ATTRIBUTE_OPTIONS.find((o) => o.value === value);
+  return opt?.label ?? value;
+}
 
 export function labelForPlaystyle(value: string | null | undefined): string {
   if (!value) return "";

@@ -9,8 +9,6 @@ import {
   labelForExperience,
   labelForPlaystyle,
   labelForSide,
-  labelForStrength,
-  labelForWeakness,
 } from "@/lib/onboarding-options";
 import {
   averageRadarAxes,
@@ -52,26 +50,23 @@ type Props = {
 type PlayerRow = {
   id: string;
   user_id: string | null;
-  playstyle: string | null;
-  strengths: string[] | null;
-  weaknesses: string[] | null;
+  play_styles: string[] | null;
+  profile_attributes: Record<string, number> | null;
   preferred_side: string | null;
   experience_level: string | null;
 };
 
 function radarFromPlayerRow(row: PlayerRow | null): ReturnType<typeof neutralRadar> {
   if (!row) return neutralRadar();
-  const strengths = row.strengths ?? [];
-  const weaknesses = row.weaknesses ?? [];
-  const playstyle = row.playstyle ?? null;
+  const playStyles = row.play_styles ?? [];
+  const profileAttributes = row.profile_attributes ?? {};
   const experience_level = row.experience_level ?? null;
-  if (!strengths.length && !weaknesses.length && !playstyle?.trim() && !experience_level?.trim()) {
+  if (!playStyles.length && Object.keys(profileAttributes).length === 0 && !experience_level?.trim()) {
     return neutralRadar();
   }
   return computeRadarFromProfile({
-    playstyle,
-    strengths,
-    weaknesses,
+    play_styles: playStyles,
+    profile_attributes: profileAttributes,
     experience_level,
   });
 }
@@ -141,7 +136,7 @@ export function PairTeamStatsModal({
     const { data: players, error: pErr } = await supabase
       .from("players")
       .select(
-        "id, user_id, playstyle, strengths, weaknesses, preferred_side, experience_level",
+        "id, user_id, play_styles, profile_attributes, preferred_side, experience_level",
       )
       .in("id", [low, high]);
 
@@ -199,14 +194,18 @@ export function PairTeamStatsModal({
   }, [open, pair, supabase, leagueId]);
 
   useEffect(() => {
-    void loadCore();
+    queueMicrotask(() => {
+      void loadCore();
+    });
   }, [loadCore]);
 
   useEffect(() => {
     if (open && pair) {
-      setActiveSection(initialSection);
+      queueMicrotask(() => {
+        setActiveSection(initialSection);
+      });
     }
-  }, [open, pair?.player_low, pair?.player_high, initialSection]);
+  }, [open, pair, initialSection]);
 
   if (!pair) return null;
 
@@ -241,8 +240,7 @@ export function PairTeamStatsModal({
     }
 
     const radar = radarFromPlayerRow(row);
-    const strengths = row.strengths ?? [];
-    const weaknesses = row.weaknesses ?? [];
+    const playStyles = row.play_styles ?? [];
 
     return (
       <div className="flex flex-col gap-6">
@@ -296,7 +294,7 @@ export function PairTeamStatsModal({
             <ul className="space-y-1.5 text-sm leading-relaxed text-foreground">
               <li>
                 <span className="text-muted-foreground">Playstyle: </span>
-                {labelForPlaystyle(row.playstyle)}
+                {labelForPlaystyle(playStyles[0] ?? null)}
               </li>
               <li>
                 <span className="text-muted-foreground">Side: </span>
@@ -307,22 +305,12 @@ export function PairTeamStatsModal({
                 {labelForExperience(row.experience_level)}
               </li>
             </ul>
-            {strengths.length > 0 ? (
+            {playStyles.length > 0 ? (
               <div className="mt-3">
-                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Strengths</p>
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Play styles</p>
                 <ul className="mt-1 list-inside list-disc space-y-0.5 text-sm text-foreground">
-                  {strengths.map((s) => (
-                    <li key={s}>{labelForStrength(s)}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {weaknesses.length > 0 ? (
-              <div className="mt-3">
-                <p className="text-xs font-medium text-amber-800 dark:text-amber-400/90">Working on</p>
-                <ul className="mt-1 list-inside list-disc space-y-0.5 text-sm text-foreground">
-                  {weaknesses.map((w) => (
-                    <li key={w}>{labelForWeakness(w)}</li>
+                  {playStyles.map((s) => (
+                    <li key={s}>{labelForPlaystyle(s)}</li>
                   ))}
                 </ul>
               </div>
