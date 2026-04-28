@@ -14,12 +14,12 @@ export const PREFERRED_SIDE_OPTIONS = [
 ] as const;
 
 export const PROFILE_ATTRIBUTE_OPTIONS = [
-  { value: "serve_return", label: "Serve & Return" },
-  { value: "net_game", label: "Net Game" },
-  { value: "power", label: "Power" },
-  { value: "consistency", label: "Consistency" },
-  { value: "movement", label: "Movement" },
-  { value: "tactical_iq", label: "Tactical IQ" },
+  { value: "serve_return", label: "Serve & return" },
+  { value: "net_game", label: "Net play" },
+  { value: "power", label: "Overheads & finishing" },
+  { value: "consistency", label: "Groundstrokes & control" },
+  { value: "movement", label: "Movement & positioning" },
+  { value: "tactical_iq", label: "Tactics & pair play" },
 ] as const;
 
 export const IMPROVEMENT_OPTIONS = [

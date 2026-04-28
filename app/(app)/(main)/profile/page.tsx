@@ -18,9 +18,11 @@ import {
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { ProfileEditSheet } from "@/components/profile-edit-sheet";
+import { ProfileCoachVerifiedAttributes } from "@/components/profile-coach-verified-attributes";
 import { ProfilePlaystyleRadarPanel } from "@/components/profile-playstyle-radar-panel";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
 import { ProfileRatingPanel } from "@/components/profile-rating-panel";
+import { ProfileVerificationSeal } from "@/components/profile-verification-seal";
 import { DeleteProfileButton } from "@/components/delete-profile-button";
 import { DEFAULT_SKILL } from "@/lib/rating";
 import { cn } from "@/lib/utils";
@@ -40,7 +42,7 @@ export default async function ProfilePage() {
   const { data: player } = await supabase
     .from("players")
     .select(
-      "id, play_styles, profile_attributes, preferred_side, experience_level",
+      "id, play_styles, profile_attributes, preferred_side, experience_level, coach_verified_at, coach_verified_by_display_name, coach_verified_venue, coach_verified_attributes, coach_verified_attribute_notes",
     )
     .eq("user_id", user.id)
     .single();
@@ -125,9 +127,21 @@ export default async function ProfilePage() {
             className="size-20 shrink-0 ring-2 ring-primary/20"
           />
           <div className="min-w-0">
-            <h2 className="font-heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-              {name || "Your profile"}
-            </h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="font-heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                {name || "Your profile"}
+              </h2>
+              <ProfileVerificationSeal
+                viewerIsSubject
+                verified={Boolean(player.coach_verified_at)}
+                verifiedAtIso={(player.coach_verified_at as string | null) ?? null}
+                coachDisplayName={
+                  (player.coach_verified_by_display_name as string | null) ?? null
+                }
+                venue={(player.coach_verified_venue as string | null) ?? null}
+                size="md"
+              />
+            </div>
             {username ? (
               <p className="mt-1 font-mono text-lg text-foreground/80">@{username}</p>
             ) : null}
@@ -135,6 +149,12 @@ export default async function ProfilePage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ProfileEditSheet key={username ?? name} defaults={defaults} />
+          <Link
+            href="/verification"
+            className={buttonVariants({ variant: "default", size: "sm" })}
+          >
+            {player.coach_verified_at ? "Verification" : "Get coach verified"}
+          </Link>
           <Link href="/dashboard" className={buttonVariants({ variant: "outline", size: "sm" })}>
             Dashboard
           </Link>
@@ -156,6 +176,20 @@ export default async function ProfilePage() {
         strengths={playStyles}
         weaknesses={[]}
       />
+
+      {player.coach_verified_at &&
+      player.coach_verified_attributes &&
+      typeof player.coach_verified_attributes === "object" ? (
+        <ProfileCoachVerifiedAttributes
+          scores={player.coach_verified_attributes as Record<string, number>}
+          notes={(player.coach_verified_attribute_notes as Record<string, string> | null) ?? null}
+          coachDisplayName={
+            (player.coach_verified_by_display_name as string | null) ?? null
+          }
+          venue={(player.coach_verified_venue as string | null) ?? null}
+          verifiedAtIso={player.coach_verified_at as string}
+        />
+      ) : null}
 
       <Card className="border-border/80 shadow-sm">
         <CardHeader>

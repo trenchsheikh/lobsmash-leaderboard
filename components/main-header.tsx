@@ -36,6 +36,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/friends", label: "Friends" },
   { href: "/profile", label: "Profile" },
+  { href: "/verification", label: "Verification" },
 ] as const;
 
 function navLinkClass(active: boolean) {
@@ -210,6 +211,12 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
               <DropdownMenuGroup>
                 <DropdownMenuItem onClick={() => router.push("/profile")}>
                   Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/become-a-coach")}>
+                  Become a coach
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/verification")}>
+                  Verification
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/dashboard")}>
                   Dashboard

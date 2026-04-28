@@ -22,6 +22,7 @@ import type { LeagueFormat } from "@/lib/league-format";
 import type { SessionInputMode } from "@/lib/league-format";
 import type { RatingHistoryPoint } from "@/components/profile-rating-chart";
 import { ProfileRatingChart } from "@/components/profile-rating-chart";
+import { ProfileVerificationSeal } from "@/components/profile-verification-seal";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,6 +85,9 @@ export function PlayerProfileAnalyticsModal({
     "none" | "pending_out" | "pending_in" | "accepted" | "self"
   >("none");
   const [adding, setAdding] = useState(false);
+  const [coachVerifiedAt, setCoachVerifiedAt] = useState<string | null>(null);
+  const [coachVerifiedLabel, setCoachVerifiedLabel] = useState<string | null>(null);
+  const [coachVerifiedVenue, setCoachVerifiedVenue] = useState<string | null>(null);
 
   const load = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -97,7 +101,7 @@ export function PlayerProfileAnalyticsModal({
       const { data: playerRow, error: pErr } = await supabase
         .from("players")
         .select(
-          "id, user_id, play_styles, profile_attributes, preferred_side, experience_level",
+          "id, user_id, play_styles, profile_attributes, preferred_side, experience_level, coach_verified_at, coach_verified_by_display_name, coach_verified_venue",
         )
         .eq("id", playerId)
         .maybeSingle();
@@ -139,6 +143,11 @@ export function PlayerProfileAnalyticsModal({
     );
     setPreferredSide((playerRow.preferred_side as string) ?? null);
     setExperienceLevel((playerRow.experience_level as string) ?? null);
+    setCoachVerifiedAt((playerRow.coach_verified_at as string | null) ?? null);
+    setCoachVerifiedLabel(
+      (playerRow.coach_verified_by_display_name as string | null) ?? null,
+    );
+    setCoachVerifiedVenue((playerRow.coach_verified_venue as string | null) ?? null);
 
     const { data: ratingRow } = await supabase
       .from("player_ratings")
@@ -346,7 +355,17 @@ export function PlayerProfileAnalyticsModal({
                   className="size-[4.5rem] shrink-0 ring-2 ring-primary/20"
                 />
                 <div className="min-w-0">
-                  <p className="font-heading text-xl font-semibold tracking-tight">{name}</p>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <p className="font-heading text-xl font-semibold tracking-tight">{name}</p>
+                    <ProfileVerificationSeal
+                      viewerIsSubject={targetUserId === currentUserId}
+                      verified={Boolean(coachVerifiedAt)}
+                      verifiedAtIso={coachVerifiedAt}
+                      coachDisplayName={coachVerifiedLabel}
+                      venue={coachVerifiedVenue}
+                      size="sm"
+                    />
+                  </div>
                   {username ? (
                     <p className="font-mono text-sm text-muted-foreground">@{username}</p>
                   ) : null}

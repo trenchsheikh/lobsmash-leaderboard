@@ -65,3 +65,27 @@ The league page polls draft session data every **12 seconds** and also subscribe
 For **near-instant** updates when only `games`, `session_teams`, or `session_court1_pair_wins` change, enable **Realtime** replication for those tables in **Supabase Dashboard → Database → Publications** (or the Realtime settings UI for your project version), so Postgres changes broadcast to connected clients. The app does not require it; polling still picks up changes within the poll interval.
 
 **In-app header notifications (session partner rows):** apply `migrations/20260410120000_user_notifications.sql` (creates `public.user_notifications`, RLS, and `sync_session_partner_notifications`). Use `npm run db:migrate:file -- supabase/migrations/20260410120000_user_notifications.sql` when `DATABASE_URL` is set, or paste into the SQL Editor.
+
+**Coach verification (player/coach portal):** apply `migrations/20260427120000_coach_verification.sql` (creates `coach_profiles`, `player_verification_requests`, `coach_assessments`, RPCs, and RLS). Use `npm run db:migrate:file -- supabase/migrations/20260427120000_coach_verification.sql` when `DATABASE_URL` is set, or paste into the SQL Editor.
+
+**Coach verification RLS fix (required after the migration above):** apply `migrations/20260427200000_fix_verification_rls_recursion.sql` so `SELECT` on `users` / `player_verification_requests` does not hit `42P17 infinite recursion` (policies no longer nest `players` ↔ `player_verification_requests` under normal RLS). Use `npm run db:migrate:file -- supabase/migrations/20260427200000_fix_verification_rls_recursion.sql` or paste into the SQL Editor.
+
+**Coach verification venue + coach label:** apply `migrations/20260427210000_coach_verified_venue_and_label.sql` (adds `coach_verified_venue`, `coach_verified_by_display_name` on `players`, `venue` on `coach_assessments`, and replaces `submit_coach_assessment` with a `p_venue` argument). Run after the coach verification migration and the RLS fix.
+
+**Coach verification bookable sessions:** apply `migrations/20260427220000_coach_verification_slots.sql` (`coach_verification_slots`, `player_verification_requests.slot_id`, `book_verification_slot` RPC, RLS). Run after the migrations above so players can book published slots from `/verification`.
+
+**Coach per-attribute notes:** apply `migrations/20260428230000_coach_attribute_notes.sql` (`attribute_notes` on `coach_assessments`, `coach_verified_attribute_notes` on `players`, and `submit_coach_assessment` gains `p_attribute_notes jsonb`). Run after the venue/label migration so coaches can save short rationale per rating.
+
+**Coach notes required:** apply `migrations/20260429100000_submit_coach_assessment_require_notes.sql` after the notes column migration. `submit_coach_assessment` then requires a non-empty trimmed string for every attribute (six keys) in `p_attribute_notes`.
+
+**Coach listing applications (documents + club flag):** apply `migrations/20260428100000_coach_listing_documents.sql` (adds `already_at_club`, `credential_document_path`, `identification_document_path` on `coach_profiles`, and a **private** Storage bucket `coach_documents` with RLS so each user uploads only under `{clerk_user_id}/**`). The **Become a coach** form at `/become-a-coach` requires this bucket for credential and ID uploads. Admins review files in **Supabase → Storage** (or via signed URLs with a service role) when approving coaches.
+
+**Approving a coach (until an admin UI exists):** after the user has saved a row in `public.coach_profiles` (via **Become a coach** at `/become-a-coach` in the app), run in SQL Editor as a privileged role:
+
+```sql
+update public.coach_profiles
+set approved_at = now()
+where user_id = 'user_YOUR_CLERK_ID_HERE';
+```
+
+Only rows with `approved_at is not null` can publish bookable sessions on `/verification` and receive assessments in the coach inbox.
