@@ -30,6 +30,19 @@ import { cn } from "@/lib/utils";
 const glassIdentity =
   "rounded-xl border border-border bg-card shadow-md backdrop-blur-sm dark:border-white/10 dark:bg-card/90";
 
+type ProfilePlayerRow = {
+  id: string;
+  play_styles: unknown;
+  profile_attributes: unknown;
+  preferred_side: string | null;
+  experience_level: string | null;
+  coach_verified_at: string | null;
+  coach_verified_by_display_name?: string | null;
+  coach_verified_venue?: string | null;
+  coach_verified_attributes?: Record<string, number> | null;
+  coach_verified_attribute_notes?: Record<string, string> | null;
+};
+
 export default async function ProfilePage() {
   const { supabase, user } = await requireOnboarded();
 
@@ -39,26 +52,48 @@ export default async function ProfilePage() {
     .eq("id", user.id)
     .single();
 
-  const { data: player } = await supabase
-    .from("players")
-    .select(
-      "id, play_styles, profile_attributes, preferred_side, experience_level, coach_verified_at, coach_verified_by_display_name, coach_verified_venue, coach_verified_attributes, coach_verified_attribute_notes",
-    )
-    .eq("user_id", user.id)
-    .single();
+  let player: ProfilePlayerRow | null = null;
+
+  {
+    const extendedSelect =
+      "id, play_styles, profile_attributes, preferred_side, experience_level, " +
+      "coach_verified_at, coach_verified_by_display_name, coach_verified_venue, " +
+      "coach_verified_attributes, coach_verified_attribute_notes";
+    const baseSelect =
+      "id, play_styles, profile_attributes, preferred_side, experience_level, coach_verified_at";
+
+    const { data: extendedRow, error: extendedErr } = await supabase
+      .from("players")
+      .select(extendedSelect)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!extendedErr) {
+      player = extendedRow as unknown as ProfilePlayerRow;
+    } else {
+      // Backward-compatible fallback if hosted DB is missing new verification columns.
+      const { data: baseRow } = await supabase
+        .from("players")
+        .select(baseSelect)
+        .eq("user_id", user.id)
+        .single();
+      player = baseRow as unknown as ProfilePlayerRow;
+    }
+  }
 
   if (!row || !player) redirect("/onboarding");
+  const playerRow = player;
 
   const { data: ratingRow } = await supabase
     .from("player_ratings")
     .select("skill, rated_games, updated_at")
-    .eq("player_id", player.id)
+    .eq("player_id", playerRow.id)
     .maybeSingle();
 
   const { data: historyRows } = await supabase
     .from("player_rating_history")
     .select("recorded_at, skill, rated_games")
-    .eq("player_id", player.id)
+    .eq("player_id", playerRow.id)
     .order("recorded_at", { ascending: true })
     .limit(500);
 
@@ -71,17 +106,17 @@ export default async function ProfilePage() {
   const name = row.name?.trim() ?? "";
   const username = row.username?.trim() ?? null;
   const avatarUrl = row.avatar_url?.trim() ?? null;
-  const playStyles = (player.play_styles as string[]) ?? [];
+  const playStyles = (playerRow.play_styles as string[]) ?? [];
   const profileAttributes =
-    (player.profile_attributes as Record<string, number> | null) ?? {};
+    (playerRow.profile_attributes as Record<string, number> | null) ?? {};
 
   const defaults = {
     name,
     username: username ?? "",
     avatar_url: avatarUrl,
     playstyle: playStyles[0] ?? null,
-    preferred_side: player.preferred_side,
-    experience_level: player.experience_level,
+    preferred_side: playerRow.preferred_side,
+    experience_level: playerRow.experience_level,
     strengths: playStyles,
     weaknesses: [],
   };
@@ -103,7 +138,7 @@ export default async function ProfilePage() {
   const radarBaseline = computeRadarFromProfile({
     play_styles: playStyles,
     profile_attributes: profileAttributes,
-    experience_level: player.experience_level,
+    experience_level: playerRow.experience_level,
   });
 
   return (
@@ -133,12 +168,12 @@ export default async function ProfilePage() {
               </h2>
               <ProfileVerificationSeal
                 viewerIsSubject
-                verified={Boolean(player.coach_verified_at)}
-                verifiedAtIso={(player.coach_verified_at as string | null) ?? null}
+                verified={Boolean(playerRow.coach_verified_at)}
+                verifiedAtIso={(playerRow.coach_verified_at as string | null) ?? null}
                 coachDisplayName={
-                  (player.coach_verified_by_display_name as string | null) ?? null
+                  (playerRow.coach_verified_by_display_name as string | null) ?? null
                 }
-                venue={(player.coach_verified_venue as string | null) ?? null}
+                venue={(playerRow.coach_verified_venue as string | null) ?? null}
                 size="md"
               />
             </div>
@@ -153,7 +188,7 @@ export default async function ProfilePage() {
             href="/verification"
             className={buttonVariants({ variant: "default", size: "sm" })}
           >
-            {player.coach_verified_at ? "Verification" : "Get coach verified"}
+            {playerRow.coach_verified_at ? "Verification" : "Get coach verified"}
           </Link>
           <Link href="/dashboard" className={buttonVariants({ variant: "outline", size: "sm" })}>
             Dashboard
@@ -171,23 +206,23 @@ export default async function ProfilePage() {
       <ProfilePlaystyleRadarPanel
         baseline={radarBaseline}
         playstyleLabel={labelForPlaystyle(playStyles[0] ?? null) || "—"}
-        sideLabel={labelForSide(player.preferred_side) || "—"}
-        experienceLabel={labelForExperience(player.experience_level) || "—"}
+        sideLabel={labelForSide(playerRow.preferred_side) || "—"}
+        experienceLabel={labelForExperience(playerRow.experience_level) || "—"}
         strengths={playStyles}
         weaknesses={[]}
       />
 
-      {player.coach_verified_at &&
-      player.coach_verified_attributes &&
-      typeof player.coach_verified_attributes === "object" ? (
+      {playerRow.coach_verified_at &&
+      playerRow.coach_verified_attributes &&
+      typeof playerRow.coach_verified_attributes === "object" ? (
         <ProfileCoachVerifiedAttributes
-          scores={player.coach_verified_attributes as Record<string, number>}
-          notes={(player.coach_verified_attribute_notes as Record<string, string> | null) ?? null}
+          scores={playerRow.coach_verified_attributes as Record<string, number>}
+          notes={(playerRow.coach_verified_attribute_notes as Record<string, string> | null) ?? null}
           coachDisplayName={
-            (player.coach_verified_by_display_name as string | null) ?? null
+            (playerRow.coach_verified_by_display_name as string | null) ?? null
           }
-          venue={(player.coach_verified_venue as string | null) ?? null}
-          verifiedAtIso={player.coach_verified_at as string}
+          venue={(playerRow.coach_verified_venue as string | null) ?? null}
+          verifiedAtIso={playerRow.coach_verified_at as string}
         />
       ) : null}
 

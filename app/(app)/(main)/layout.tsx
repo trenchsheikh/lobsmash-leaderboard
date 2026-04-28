@@ -19,7 +19,7 @@ export default async function MainShellLayout({
         }}
       />
       <MainRouteTransition>
-        <main className="relative z-10 mx-auto w-full min-w-0 max-w-5xl flex-1 px-3 py-5 pb-10 sm:px-4 sm:py-6">
+        <main className="relative z-10 mx-auto w-full min-w-0 max-w-5xl flex-1 px-3 py-5 pb-24 sm:px-4 sm:py-6 sm:pb-10">
           {children}
         </main>
       </MainRouteTransition>

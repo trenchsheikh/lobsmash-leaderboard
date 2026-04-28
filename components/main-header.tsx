@@ -1,20 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useClerk } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, LogOut, Menu } from "lucide-react";
+import {
+  ChevronDown,
+  Home,
+  LogOut,
+  ShieldCheck,
+  UserRound,
+  Users,
+} from "lucide-react";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { UserAvatarDisplay } from "@/components/user-avatar-display";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogDrawerContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,22 +32,14 @@ export type MainHeaderUser = {
 };
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/friends", label: "Friends" },
-  { href: "/profile", label: "Profile" },
-  { href: "/verification", label: "Verification" },
+  { href: "/dashboard", label: "Dashboard", Icon: Home },
+  { href: "/friends", label: "Friends", Icon: Users },
+  { href: "/profile", label: "Profile", Icon: UserRound },
+  { href: "/verification", label: "Verification", Icon: ShieldCheck },
 ] as const;
 
-function navLinkClass(active: boolean) {
-  return cn(
-    "rounded-lg px-3 py-3 text-base font-medium md:py-2 md:text-sm",
-    "transition-[color,background-color,transform] duration-200 ease-out",
-    "motion-safe:active:scale-[0.98] motion-reduce:active:scale-100",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-    active
-      ? "bg-primary/12 text-brand-navy dark:text-sky-300"
-      : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-  );
+function isNavActive(pathname: string, href: string): boolean {
+  return pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 }
 
 export function MainHeader({ user }: { user: MainHeaderUser }) {
@@ -56,28 +47,12 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
   const router = useRouter();
   const { signOut } = useClerk();
   const displayName = user.name?.trim() || user.username?.trim() || "Account";
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
-
-  useEffect(() => {
-    setMobileNavOpen(false);
-  }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-40 border-0 bg-transparent px-0 pt-[env(safe-area-inset-top,0px)] sm:static sm:px-4 sm:pt-4">
+    <>
+    <header className="z-30 border-0 bg-transparent px-0 pt-[env(safe-area-inset-top,0px)] sm:px-4 sm:pt-4">
       <div className="mx-auto flex h-12 w-full max-w-5xl items-center justify-between gap-2 rounded-t-none rounded-b-xl border-b border-border bg-card/95 px-3 shadow-md backdrop-blur-xl ring-1 ring-black/[0.04] sm:h-14 sm:gap-4 sm:rounded-2xl sm:border sm:px-4 dark:border-white/12 dark:bg-white/10 dark:ring-white/10">
         <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-10">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="shrink-0 md:hidden"
-            aria-label="Open menu"
-            aria-expanded={mobileNavOpen}
-            aria-controls="mobile-main-nav"
-            onClick={() => setMobileNavOpen(true)}
-          >
-            <Menu className="size-5" aria-hidden />
-          </Button>
           <Link
             href="/dashboard"
             transitionTypes={["nav"]}
@@ -102,9 +77,7 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
             aria-label="Main"
           >
             {navItems.map(({ href, label }) => {
-              const active =
-                pathname === href ||
-                (href !== "/dashboard" && pathname.startsWith(href));
+              const active = isNavActive(pathname, href);
               return (
                 <Link
                   key={href}
@@ -127,50 +100,6 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
             })}
           </nav>
         </div>
-
-        <Dialog open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-          <DialogDrawerContent
-            id="mobile-main-nav"
-            className="pb-[env(safe-area-inset-bottom,0px)]"
-            showCloseButton
-          >
-            <DialogHeader className="border-b border-border/80 px-4 py-3 pr-12">
-              <DialogTitle className="font-heading text-left text-lg">Menu</DialogTitle>
-            </DialogHeader>
-            <nav className="flex flex-col gap-0.5 p-2" aria-label="Main">
-              {navItems.map(({ href, label }) => {
-                const active =
-                  pathname === href ||
-                  (href !== "/dashboard" && pathname.startsWith(href));
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    onClick={() => setMobileNavOpen(false)}
-                    aria-current={active ? "page" : undefined}
-                    className={navLinkClass(active)}
-                  >
-                    {label}
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="mt-auto border-t border-border/80 p-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full justify-center gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => {
-                  setMobileNavOpen(false);
-                  void signOut({ redirectUrl: "/login" });
-                }}
-              >
-                <LogOut className="size-4" aria-hidden />
-                Sign out
-              </Button>
-            </div>
-          </DialogDrawerContent>
-        </Dialog>
 
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
           <NotificationsBell />
@@ -237,5 +166,34 @@ export function MainHeader({ user }: { user: MainHeaderUser }) {
         </div>
       </div>
     </header>
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 px-2 pb-[env(safe-area-inset-bottom,0px)] pt-2 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur md:hidden"
+      aria-label="Bottom navigation"
+    >
+      <div className="mx-auto grid max-w-5xl grid-cols-4 gap-1">
+        {navItems.map(({ href, label, Icon }) => {
+          const active = isNavActive(pathname, href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              transitionTypes={["nav"]}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-medium",
+                "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                active
+                  ? "bg-primary/12 text-brand-navy dark:text-sky-300"
+                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+              )}
+            >
+              <Icon className="size-[1.15rem]" aria-hidden />
+              <span>{label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+    </>
   );
 }
