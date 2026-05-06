@@ -29,7 +29,7 @@ type Props = {
 export function ProfileRankInfoDialog({ currentTierId, className }: Props) {
   const [open, setOpen] = useState(false);
 
-  // Render badges from highest to lowest so Top 250 sits on top of the list.
+  // Render badges from highest to lowest so Icon sits on top of the list.
   const ordered = [...RANK_TIERS].filter((t) => t.imageSrc !== null).reverse();
 
   return (
@@ -63,7 +63,7 @@ export function ProfileRankInfoDialog({ currentTierId, className }: Props) {
           {ordered.map((tier) => {
             const isCurrent = tier.id === currentTierId;
             const range =
-              tier.id === "top250"
+              tier.id === "icon"
                 ? `${tier.minSkill}+`
                 : (() => {
                     const idx = RANK_TIERS.findIndex((t) => t.id === tier.id);

@@ -213,7 +213,7 @@ export function ProfileRankHero({
         </p>
       ) : (
         <p className="relative mt-4 text-xs text-white/70">
-          You&apos;re at the top tier. Keep your rating climbing to stay in Top 250.
+          You&apos;re at the top tier. Keep your rating climbing to stay in Icon.
         </p>
       )}
     </section>
