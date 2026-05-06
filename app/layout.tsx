@@ -1,16 +1,22 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import { Geist_Mono, Inter, Manrope } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const fontHeading = Outfit({
-  variable: "--font-outfit",
+// Design-system typography:
+//   - Headlines: Manrope
+//   - Body / Labels: Inter
+//   - Numbers / mono accents: Geist Mono
+// These map onto Tailwind's `font-heading` / `font-sans` / `font-mono` via
+// the CSS variables wired in `globals.css`.
+const fontHeading = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
 });
 
-const fontSans = Plus_Jakarta_Sans({
-  variable: "--font-plus-jakarta",
+const fontSans = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 

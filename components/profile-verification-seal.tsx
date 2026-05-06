@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -11,20 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-function sealBlobPath(cx: number, cy: number, rOuter: number, rInner: number, bumps: number) {
-  const n = bumps * 2;
-  const parts: string[] = [];
-  for (let i = 0; i <= n; i++) {
-    const t = (i / n) * Math.PI * 2 - Math.PI / 2;
-    const r = i % 2 === 0 ? rOuter : rInner;
-    const x = cx + r * Math.cos(t);
-    const y = cy + r * Math.sin(t);
-    parts.push(`${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`);
-  }
-  return `${parts.join(" ")} Z`;
-}
-
-function SealIcon({
+function VerificationBadgeImage({
   verified,
   size,
   className,
@@ -33,42 +21,18 @@ function SealIcon({
   size: "sm" | "md";
   className?: string;
 }) {
-  const vb = 40;
-  const cx = vb / 2;
-  const cy = vb / 2;
-  const outer = 14.2;
-  const inner = 11.6;
-  const bumps = 14;
-  const d = sealBlobPath(cx, cy, outer, inner, bumps);
-  const dim = size === "sm" ? 22 : 26;
-
+  const dim = size === "sm" ? 16 : 20;
+  const src = verified ? "/verified.png" : "/unverified.png";
+  const alt = verified ? "Verified" : "Unverified";
   return (
-    <svg
+    <Image
+      src={src}
+      alt={alt}
       width={dim}
       height={dim}
-      viewBox={`0 0 ${vb} ${vb}`}
-      className={cn("shrink-0", className)}
-      aria-hidden
-    >
-      <path
-        d={d}
-        fill={verified ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth={verified ? 0 : 1.1}
-        className={cn(
-          verified ? "text-primary" : "text-muted-foreground/70",
-        )}
-      />
-      <path
-        d="M15.2 20.4l2.6 2.6 5.4-6.2"
-        fill="none"
-        stroke={verified ? "#ffffff" : "currentColor"}
-        strokeWidth={verified ? 1.55 : 1.15}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={verified ? undefined : "text-muted-foreground/55"}
-      />
-    </svg>
+      className={cn("shrink-0 select-none", className)}
+      priority={false}
+    />
   );
 }
 
@@ -109,47 +73,38 @@ export function ProfileVerificationSeal({
   const [open, setOpen] = useState(false);
   const coach = coachDisplayName?.trim() || "Coach";
   const venueLine = venue?.trim() || null;
-  const textSm = size === "sm" ? "text-[10px]" : "text-[11px]";
 
   const infoCardClass =
     "border border-[#0b3d8d] bg-[#0B4FAE] text-white shadow-xl ring-1 ring-black/20 sm:max-w-md";
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cn(
-          "group inline-flex max-w-full items-center gap-1.5 rounded-lg py-0.5 text-left",
-          "transition-opacity hover:opacity-90",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          className,
-        )}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={verified ? "Coach verification details" : "Coach verification"}
-      >
-        <SealIcon verified={verified} size={size} />
-        <span className="flex min-w-0 flex-col leading-tight">
-          {verified ? (
-            <>
-              <span
-                className={cn(
-                  "font-medium text-foreground group-hover:underline",
-                  size === "sm" ? "text-xs" : "text-sm",
-                )}
-              >
-                verified
-              </span>
-              <span className={cn("text-muted-foreground", textSm)}>details</span>
-            </>
-          ) : (
-            <span className={cn("text-muted-foreground", textSm)}>
-              {viewerIsSubject ? "get verified" : "not verified"}
-            </span>
+      <div className={cn("inline-flex items-center gap-1.5", className)}>
+        <VerificationBadgeImage verified={verified} size={size} />
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={cn(
+            "inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.7rem] font-semibold shadow-sm transition-all",
+            "hover:brightness-105 active:scale-[0.98]",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            verified
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-foreground/80 ring-1 ring-border/70 hover:bg-muted/80",
           )}
-        </span>
-      </button>
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={
+            verified
+              ? "Coach verification details"
+              : viewerIsSubject
+                ? "Get verified by a coach"
+                : "Coach verification"
+          }
+        >
+          {verified ? "Verified" : viewerIsSubject ? "Get verified" : "Unverified"}
+        </button>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent

@@ -46,34 +46,33 @@ export function ProfileRatingPanel({
     : null;
 
   return (
-    <Card className="overflow-hidden border-border/80 bg-gradient-to-br from-card via-card to-chart-1/[0.04] shadow-md dark:to-chart-1/[0.06]">
-      <CardHeader className="border-b border-border/50 bg-muted/15">
-        <CardTitle className="font-heading text-xl tracking-tight">Skill rating</CardTitle>
+    <Card className="overflow-hidden rounded-[1.6rem] border-white/50 bg-card/90 shadow-md backdrop-blur-xl dark:border-white/15 sm:rounded-xl sm:border-border/80 sm:bg-card sm:shadow-sm">
+      <CardHeader className="border-b border-border/50 bg-muted/10">
+        <CardTitle className="font-heading text-lg tracking-tight">Level insights</CardTitle>
         <CardDescription className="max-w-2xl">
-          Global padel skill from completed sessions (shared across leagues). Updates when sessions
-          are completed.
+          Global skill from completed sessions across all leagues.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-8 pt-6">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)] lg:items-start">
-          <div className="min-w-0 space-y-6">
-            <div className="flex flex-wrap gap-6 gap-y-4">
-              <div>
+      <CardContent className="space-y-6 pt-5">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)] lg:items-start">
+          <div className="min-w-0 space-y-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Display level
+                  Level
                 </p>
-                <p className="mt-1 font-heading text-4xl font-semibold tabular-nums tracking-tight text-foreground">
+                <p className="mt-1 font-heading text-3xl font-semibold tabular-nums tracking-tight text-foreground">
                   {formatDisplayLevel(effectiveSkill)}
                 </p>
                 <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
                   {Math.round(effectiveSkill)} skill
                 </p>
               </div>
-              <div>
+              <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Rated games
                 </p>
-                <p className="mt-1 font-heading text-4xl font-semibold tabular-nums tracking-tight">
+                <p className="mt-1 font-heading text-3xl font-semibold tabular-nums tracking-tight">
                   {ratedGames}
                 </p>
                 {span !== null ? (
@@ -88,7 +87,7 @@ export function ProfileRatingPanel({
                 )}
               </div>
               {updatedLabel ? (
-                <div className="min-w-[10rem]">
+                <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Last update
                   </p>
@@ -99,8 +98,7 @@ export function ProfileRatingPanel({
 
             {!hasHistory ? (
               <p className="text-sm text-muted-foreground">
-                Your rating history appears after your first completed session that updates global
-                skill (starts at {DEFAULT_SKILL}).
+                History appears after your first completed rated session (starts at {DEFAULT_SKILL}).
               </p>
             ) : null}
           </div>
@@ -109,7 +107,7 @@ export function ProfileRatingPanel({
         </div>
 
         {hasHistory && history.length >= 1 ? (
-          <div className="min-w-0 border-t border-border/50 pt-8">
+          <div className="min-w-0 border-t border-border/50 pt-6">
             <ProfileRatingChart history={history} presentation="embedded" />
           </div>
         ) : null}
@@ -138,7 +136,7 @@ export function ProfileRatingPanel({
       </CardContent>
 
       {hasHistory && history.length >= 2 ? (
-        <CardFooter className="flex-col items-start gap-1 border-t border-border/50 bg-muted/10 px-6 py-4 text-sm">
+        <CardFooter className="flex-col items-start gap-1 border-t border-border/50 bg-muted/10 px-5 py-4 text-sm">
           <div className="flex items-center gap-2 font-medium text-foreground">
             {span !== null && span > 0 ? (
               <>

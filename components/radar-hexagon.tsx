@@ -41,13 +41,13 @@ export type RadarHexagonProps = {
 export function RadarHexagon({
   axes,
   className,
-  labelFontSize = 3.55,
+  labelFontSize = 3.75,
 }: RadarHexagonProps) {
   const narrowMobile = useIsMaxSm();
 
   const tickFontSize = Math.max(
     narrowMobile ? 8 : 9,
-    Math.round((labelFontSize / 3.55) * (narrowMobile ? 9 : 10)),
+    Math.round((labelFontSize / 3.55) * (narrowMobile ? 10 : 11)),
   );
 
   const chartData = useMemo(() => {
@@ -73,10 +73,10 @@ export function RadarHexagon({
           data={chartData}
           margin={
             narrowMobile
-              ? { top: 14, right: 18, bottom: 14, left: 18 }
-              : { top: 24, right: 32, bottom: 24, left: 32 }
+              ? { top: 12, right: 14, bottom: 12, left: 14 }
+              : { top: 18, right: 24, bottom: 18, left: 24 }
           }
-          outerRadius={narrowMobile ? "58%" : "62%"}
+          outerRadius={narrowMobile ? "62%" : "64%"}
         >
           <ChartTooltip
             cursor={false}

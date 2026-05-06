@@ -40,7 +40,13 @@ export type ProfileEditDefaults = {
 const STRENGTH_ALLOWED = new Set<string>(STRENGTH_OPTIONS.map((o) => o.value));
 const WEAKNESS_ALLOWED = new Set<string>(WEAKNESS_OPTIONS.map((o) => o.value));
 
-export function ProfileEditSheet({ defaults }: { defaults: ProfileEditDefaults }) {
+export function ProfileEditSheet({
+  defaults,
+  triggerClassName,
+}: {
+  defaults: ProfileEditDefaults;
+  triggerClassName?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -148,10 +154,12 @@ export function ProfileEditSheet({ defaults }: { defaults: ProfileEditDefaults }
           <Button
             type="button"
             variant="outline"
-            className="gap-2"
+            size="icon"
+            aria-label="Edit profile"
+            title="Edit profile"
+            className={cn(triggerClassName)}
           >
             <Pencil className="size-4" aria-hidden />
-            Edit profile
           </Button>
         }
       />

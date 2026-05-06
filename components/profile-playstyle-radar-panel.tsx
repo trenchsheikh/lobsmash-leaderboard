@@ -61,34 +61,33 @@ export function ProfilePlaystyleRadarPanel({
   return (
     <Card
       className={cn(
-        "overflow-hidden border-border/80 bg-gradient-to-br from-card via-card to-muted/20 shadow-md",
+        "overflow-hidden rounded-[1.6rem] border-white/50 bg-card/90 shadow-md backdrop-blur-xl dark:border-white/15 sm:rounded-xl sm:border-border/80 sm:bg-card sm:shadow-sm",
         className,
       )}
     >
-      <CardHeader className="border-b border-border/60 bg-muted/20 pb-4">
+      <CardHeader className="border-b border-border/55 bg-muted/10 pb-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <CardTitle className="font-heading text-xl tracking-tight">Your game</CardTitle>
+            <CardTitle className="font-heading text-lg tracking-tight">Skill radar</CardTitle>
             <CardDescription className="mt-1 max-w-xl">
-              Self-reported style and a radar sketch from your profile. Explore tweaks the chart
-              only on this page—your saved profile stays the same.
+              Your profile snapshot. Adjust only previews changes on this page.
             </CardDescription>
           </div>
-          <div className="inline-flex h-auto min-h-10 flex-wrap items-center gap-1 rounded-xl border border-border/60 bg-muted/40 p-1.5">
+          <div className="inline-flex h-auto min-h-10 flex-wrap items-center gap-1 rounded-full border border-white/55 bg-white/50 p-1 shadow-sm backdrop-blur-xl dark:border-white/20 dark:bg-white/10">
             <Button
               type="button"
               variant={tab === "profile" ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-lg"
+              className="h-8 rounded-lg px-2.5 text-xs"
               onClick={() => setTab("profile")}
             >
-              From profile
+              Profile
             </Button>
             <Button
               type="button"
               variant={tab === "explore" ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-lg"
+              className="h-8 rounded-lg px-2.5 text-xs"
               onClick={() => setTab("explore")}
             >
               Adjust
@@ -96,31 +95,31 @@ export function ProfilePlaystyleRadarPanel({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-4 sm:p-6">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:items-start">
-          <div className="space-y-6">
-            <div className="grid gap-5 sm:grid-cols-2">
+      <CardContent className="p-4 sm:p-5">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:items-start">
+          <div className="space-y-5">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Style
                 </p>
-                <p className="mt-1 text-base font-semibold text-foreground">{playstyleLabel || "—"}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{playstyleLabel || "—"}</p>
               </div>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Preferred side
                 </p>
-                <p className="mt-1 text-base font-semibold text-foreground">{sideLabel || "—"}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{sideLabel || "—"}</p>
               </div>
-              <div className="sm:col-span-2">
+              <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Experience
                 </p>
-                <p className="mt-1 text-base font-semibold text-foreground">{experienceLabel || "—"}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{experienceLabel || "—"}</p>
               </div>
             </div>
 
-            <div>
+            <div className="rounded-xl border border-border/50 bg-muted/10 p-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Strengths
               </p>
@@ -129,14 +128,14 @@ export function ProfilePlaystyleRadarPanel({
                   <span className="text-sm text-muted-foreground">—</span>
                 ) : (
                   strengths.map((s) => (
-                    <Badge key={s} variant="secondary" className="font-normal">
+                    <Badge key={s} variant="secondary" className="rounded-full px-2.5 font-normal">
                       {labelForStrength(s)}
                     </Badge>
                   ))
                 )}
               </div>
             </div>
-            <div>
+            <div className="rounded-xl border border-border/50 bg-muted/10 p-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Areas to grow
               </p>
@@ -148,7 +147,7 @@ export function ProfilePlaystyleRadarPanel({
                     <Badge
                       key={w}
                       variant="outline"
-                      className="border-amber-400/40 bg-amber-500/10 font-normal dark:border-amber-500/30"
+                      className="rounded-full border-amber-400/40 bg-amber-500/10 px-2.5 font-normal dark:border-amber-500/30"
                     >
                       {labelForWeakness(w)}
                     </Badge>
@@ -159,7 +158,7 @@ export function ProfilePlaystyleRadarPanel({
           </div>
 
           <div className="flex flex-col items-center gap-4 lg:items-stretch">
-            <div className="relative w-full max-w-[320px] rounded-2xl border border-border/50 bg-muted/15 p-3 ring-1 ring-border/30">
+            <div className="relative w-full max-w-[320px] rounded-2xl border border-border/50 bg-muted/15 p-2.5 ring-1 ring-border/20">
               <RadarHexagon axes={displayAxes} className="max-h-[280px]" />
             </div>
 
